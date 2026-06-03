@@ -1,0 +1,1432 @@
+/* TTC brand tokens (dark) + mobile-first landing styles for the login demo. */
+:root {
+  --bg: #0a0a0f;
+  --surface: #0d1117;
+  --elevated: #161b22;
+  --border: #30363d;
+  --fg: #fafafa;
+  --muted: #9ca3af;
+  --primary: #3a479e; /* indigo */
+  --secondary: #12bff8; /* cyan */
+  --accent: #fcc433; /* yellow */
+  --green: #22c55e;
+  --red: #ea354b;
+  --brand-gradient: linear-gradient(90deg, #3a479e, #12bff8);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    Arial,
+    Helvetica,
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Subtle brand glow behind the page. */
+  background-image: radial-gradient(60rem 30rem at 50% -10%, rgba(58, 71, 158, 0.22), transparent 70%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* --- Layout shell (mobile-first; two columns at lg) --- */
+.page {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  /* Extra top padding clears the fixed floating nav (~52px tall + 14px gap). */
+  padding: 88px 16px calc(48px + env(safe-area-inset-bottom));
+}
+
+/* --- Floating pill navigation (openwallet.sh-inspired) ---
+   Fixed, horizontally centered, rounded, translucent. Content has top padding
+   to clear the floating bar. */
+.nav {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  /* On mobile the pill spans almost the full viewport; on tablet+ it shrinks
+     to fit its content. The `width: max-content` + `max-width` combo lets us
+     do that without media-query gymnastics. */
+  width: max-content;
+  max-width: calc(100% - 24px);
+  background: rgba(10, 10, 15, 0.72);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  border: 1px solid rgba(48, 54, 61, 0.7);
+  border-radius: 999px;
+  /* Soft drop shadow so the pill reads as floating above the page glow. */
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 14px 40px -16px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(18, 191, 248, 0.04);
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 8px 6px 14px;
+}
+
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-size: 16px;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Brand mark — actual logo PNG sits flush left of the wordmark. */
+.nav-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  /* Drop shadow so the silver mark reads against the translucent nav. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.nav-slash {
+  color: var(--muted);
+  margin: 0 1px;
+  font-weight: 600;
+}
+
+.nav-links {
+  display: none; /* mobile-first; revealed on desktop */
+  gap: 22px;
+  margin-left: 18px;
+}
+
+.nav-links a {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.nav-links a:hover {
+  color: var(--fg);
+}
+
+.nav-cta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  border-radius: 999px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.nav-btn-primary {
+  color: #000;
+  background: var(--secondary);
+  border: 1px solid var(--secondary);
+}
+
+.nav-btn-primary:hover {
+  background: #4dd1ff;
+  box-shadow: 0 0 0 4px rgba(18, 191, 248, 0.18);
+}
+
+.nav-btn-primary:hover svg {
+  transform: translateX(2px);
+}
+
+.nav-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+/* Icon-only nav link (e.g. GitHub). Borderless — just the mark. */
+.nav-btn-icon {
+  padding: 4px;
+  background: transparent;
+  border: none;
+}
+
+/* GitHub PNG is black-on-transparent; invert to white so it reads on dark. */
+.nav-github {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: invert(1);
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+.nav-btn-icon:hover .nav-github {
+  opacity: 1;
+}
+
+.hero {
+  text-align: center;
+  padding: 16px 4px 8px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  background: rgba(18, 191, 248, 0.1);
+  border: 1px solid rgba(18, 191, 248, 0.25);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.hero h1 {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 800;
+  margin: 16px 0 0;
+  letter-spacing: -0.02em;
+}
+
+.hero h1 .grad {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero p {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 46ch;
+  margin: 12px auto 0;
+}
+
+.trust {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.trust span svg {
+  color: var(--green);
+}
+
+/* --- Hero CTA row (primary cyan + outline) --- */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 22px 0 6px;
+}
+
+.hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border-radius: 12px;
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.hero-btn-primary {
+  background: var(--secondary);
+  color: #000;
+  border: 1px solid var(--secondary);
+}
+
+.hero-btn-primary:hover {
+  background: #4dd1ff;
+  box-shadow: 0 0 0 5px rgba(18, 191, 248, 0.18);
+}
+
+.hero-btn-primary:hover svg {
+  transform: translateX(2px);
+}
+
+.hero-btn-outline {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.hero-btn-outline:hover {
+  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hero-btn svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+/* --- Terminal mockup (signature visual under the hero) --- */
+.terminal {
+  width: 100%;
+  max-width: 640px;
+  margin: 26px auto 6px;
+  background: linear-gradient(180deg, #0b0f17 0%, #0a0e15 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  text-align: left;
+  /* Brand-colored glow so the block feels like a featured artifact, not chrome. */
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 60px -20px rgba(18, 191, 248, 0.18),
+    0 0 0 1px rgba(58, 71, 158, 0.18);
+}
+
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.terminal-dot-r {
+  background: #ff5f57;
+}
+
+.terminal-dot-y {
+  background: #febc2e;
+}
+
+.terminal-dot-g {
+  background: #28c840;
+}
+
+.terminal-title {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.terminal-body {
+  margin: 0;
+  padding: 16px 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color: var(--fg);
+  overflow-x: auto;
+}
+
+.terminal-body code {
+  font-family: inherit;
+}
+
+.t-line {
+  display: block;
+  white-space: pre;
+}
+
+.t-prompt {
+  color: var(--secondary);
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.t-out {
+  color: var(--muted);
+}
+
+.t-ok {
+  color: var(--green);
+  margin-right: 6px;
+}
+
+.t-comment {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.t-kw {
+  color: #c084fc; /* purple for keywords (import / const / from) */
+  font-weight: 600;
+}
+
+.t-str {
+  color: #86efac; /* green for strings */
+}
+
+.t-fn {
+  color: var(--secondary);
+}
+
+.t-tag {
+  color: var(--accent);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 2px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.methods {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --- Cards --- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.method {
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.method:hover {
+  border-color: rgba(18, 191, 248, 0.5);
+}
+
+.method-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.icon-chip {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(58, 71, 158, 0.18);
+  border: 1px solid rgba(58, 71, 158, 0.4);
+  color: var(--secondary);
+}
+
+.method-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.method-desc {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin: 2px 0 0;
+}
+
+.method-body {
+  margin-top: 16px;
+}
+
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.input {
+  height: 46px;
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 16px; /* >=16px: no iOS zoom on focus */
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.input::placeholder {
+  color: #6b7280;
+}
+
+.input:focus {
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 3px rgba(18, 191, 248, 0.2);
+}
+
+/* --- Buttons --- */
+.btn {
+  height: 46px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: rgba(58, 71, 158, 0.78);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--fg);
+}
+
+.btn-outline:hover {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0 0;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Sidebar (status + activity) --- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dot.on {
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.dot.off {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(252, 196, 51, 0.18);
+}
+
+.status-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status-sub {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.btn-ghost {
+  height: 38px;
+  padding: 0 14px;
+  width: auto;
+  flex-shrink: 0;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.activity-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.activity-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.activity-head span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.log {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.log-empty {
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.log .ok {
+  color: var(--green);
+}
+
+.log .err {
+  color: var(--red);
+}
+
+/* --- Wallets panel (post-login) --- */
+.panel-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.panel-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lock-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.lock-banner .lock-text {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unlocked-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green);
+  margin-top: 14px;
+}
+
+.wallet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.wallet-row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+}
+
+.wallet-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.badge-sol {
+  color: var(--secondary);
+  background: rgba(18, 191, 248, 0.14);
+  border: 1px solid rgba(18, 191, 248, 0.35);
+}
+
+.badge-evm {
+  color: #aab4ff;
+  background: rgba(58, 71, 158, 0.22);
+  border: 1px solid rgba(58, 71, 158, 0.5);
+}
+
+.role {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.role small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.key-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 9px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-btn {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--elevated);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.mini-btn:hover {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.mini-btn.danger:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.secret {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.secret code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: #ffd9de;
+  background: rgba(234, 53, 75, 0.12);
+  border: 1px solid rgba(234, 53, 75, 0.4);
+  border-radius: 8px;
+  padding: 8px 10px;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.warn {
+  font-size: 11px;
+  color: var(--red);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gate {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(18, 191, 248, 0.4);
+  border-radius: 12px;
+  background: rgba(18, 191, 248, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gate-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gate-row {
+  display: flex;
+  gap: 8px;
+}
+
+.gate-error {
+  font-size: 12px;
+  color: var(--red);
+}
+
+.divider-spacer {
+  height: 8px;
+}
+
+/* --- Sign Message card (below wallets) --- */
+.sign-card {
+  margin-bottom: 14px;
+}
+
+/* Pill-style segmented chain toggle. */
+.chain-toggle {
+  display: flex;
+  gap: 4px;
+  margin: 14px 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.toggle-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.toggle-btn:hover {
+  color: var(--fg);
+}
+
+.toggle-btn.active {
+  background: var(--elevated);
+  color: var(--fg);
+}
+
+.signing-as {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.signing-as code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--elevated);
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.signing-as small {
+  font-size: 11.5px;
+}
+
+/* Reuse .input look but allow vertical resize. */
+.textarea {
+  height: auto;
+  padding: 12px 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 84px;
+  margin-bottom: 12px;
+}
+
+.sig-result {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sig-status {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sig-status.ok {
+  color: var(--green);
+}
+
+.sig-status.err {
+  color: var(--red);
+}
+
+.sig-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sig-meta code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--elevated);
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.sig-bytes {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--fg);
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  word-break: break-all;
+  line-height: 1.55;
+}
+
+/* --- Final CTA — mirrors ttc.box's "Trade everywhere from one login" hero --- */
+.cta {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  padding: 80px 16px calc(96px + env(safe-area-inset-bottom));
+  margin-top: 48px;
+}
+
+/* Blurred cyan/slate glow blobs sit behind the copy. */
+.cta-glow {
+  position: absolute;
+  width: 24rem;
+  height: 24rem;
+  border-radius: 999px;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cta-glow-left {
+  top: 0;
+  left: 18%;
+  background: rgba(18, 191, 248, 0.2);
+}
+
+.cta-glow-right {
+  bottom: 0;
+  right: 18%;
+  background: rgba(100, 116, 139, 0.22);
+}
+
+.cta-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.cta-title {
+  font-size: 36px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0 0 16px;
+}
+
+.cta-accent {
+  color: var(--secondary);
+}
+
+.cta-sub {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 36rem;
+  margin: 0 auto 32px;
+}
+
+.cta-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Button base — text-decoration-none because we use <a>, not <button>. */
+.cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.cta-btn-primary {
+  background: var(--secondary);
+  color: #000;
+  border: none;
+}
+
+.cta-btn-primary:hover {
+  background: #4dd1ff;
+}
+
+.cta-btn-primary:hover svg {
+  transform: translateX(3px);
+}
+
+.cta-btn-primary svg {
+  transition: transform 0.2s ease;
+}
+
+.cta-btn-outline {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.cta-btn-outline:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* --- Shared section header (kicker + headline + sub) --- */
+.section-head {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 24px;
+}
+
+.kicker {
+  display: inline-block;
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.section-head h2 {
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.section-head h2 .grad {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.section-sub {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 12px auto 0;
+  max-width: 56ch;
+}
+
+/* --- Numbered principles grid (OWS-inspired) --- */
+.principles {
+  margin-top: 56px;
+  padding: 8px 0;
+}
+
+.principle-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.principle-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 20px 18px;
+  /* Card hover lift like the methods cards. */
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.principle-card:hover {
+  border-color: rgba(18, 191, 248, 0.45);
+  transform: translateY(-1px);
+}
+
+.principle-num {
+  display: inline-block;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--secondary);
+  background: rgba(18, 191, 248, 0.08);
+  border: 1px solid rgba(18, 191, 248, 0.25);
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-bottom: 12px;
+}
+
+.principle-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.principle-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* --- Quickstart install steps --- */
+.install {
+  margin-top: 56px;
+  padding: 8px 0;
+}
+
+.install-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.install-step {
+  display: flex;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.step-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  background: var(--brand-gradient);
+}
+
+.step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-body h4 {
+  margin: 4px 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.install-snippet {
+  margin: 0;
+  padding: 12px 14px;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: #0a0e15;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* --- Tablet upgrade: reveal nav links and 2-col grids --- */
+@media (min-width: 720px) {
+  .nav-links {
+    display: inline-flex;
+  }
+
+  .principle-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .install-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .section-head h2 {
+    font-size: 34px;
+  }
+}
+
+/* --- Desktop upgrade --- */
+@media (min-width: 1024px) {
+  .page {
+    padding: 104px 32px 64px;
+  }
+
+  .hero {
+    padding-top: 32px;
+  }
+
+  .hero h1 {
+    font-size: 56px;
+  }
+
+  .hero p {
+    font-size: 17px;
+  }
+
+  .terminal {
+    margin-top: 32px;
+  }
+
+  .principles,
+  .install {
+    margin-top: 88px;
+  }
+
+  .principle-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .section-head h2 {
+    font-size: 40px;
+  }
+
+  .layout {
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 28px;
+    margin-top: 44px;
+    align-items: start;
+  }
+
+  .sidebar {
+    /* Account for the sticky nav so the sidebar doesn't slide under it. */
+    position: sticky;
+    top: 88px;
+  }
+
+  .card {
+    border-radius: 16px;
+    padding: 22px;
+  }
+
+  .field-row {
+    flex-direction: row;
+  }
+
+  .cta {
+    padding: 128px 32px;
+    margin-top: 80px;
+  }
+
+  .cta-title {
+    font-size: 60px;
+  }
+
+  .cta-sub {
+    font-size: 20px;
+    margin-bottom: 40px;
+  }
+
+  .cta-actions {
+    flex-direction: row;
+  }
+
+  .cta-btn {
+    padding: 18px 40px;
+    font-size: 18px;
+  }
+}
