@@ -172,10 +172,25 @@ function UIPageInner() {
               autoClearMs={45_000}
               clipboardClearMs={20_000}
               title={null}
+              // Reveal now requires a fresh ceremony per the account's method:
+              // email → passkey, biometric → Face ID (needs the stored reg),
+              // wallet → re-sign via the injected provider.
+              passkeyRegistration={passkeyReg}
+              walletSignMessage={async (m) => {
+                const provider = getInjectedSolana();
+                if (!provider) throw new Error("No Solana wallet detected");
+                const sig = await provider.signMessage(m, "utf8");
+                return sig instanceof Uint8Array ? sig : sig.signature;
+              }}
               appearance={{ accent: "#3a479e", radius: 10 }}
               styles={{
                 root: { color: "var(--fg)", maxWidth: "100%" },
                 description: { color: "var(--muted)" },
+                input: {
+                  background: "var(--elevated)",
+                  color: "var(--fg)",
+                  border: "1px solid var(--border)",
+                },
                 button: {
                   background: "transparent",
                   color: "var(--fg)",

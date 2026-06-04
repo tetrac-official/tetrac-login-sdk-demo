@@ -7,6 +7,13 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     // Point the SDK client at our catch-all API route. walletGen defaults to
     // funds + signing on both chains; override here to request fewer.
-    <AuthProvider apiBaseUrl="/api/auth">{children}</AuthProvider>
+    //
+    // autoLockMs: the SDK default is 15s; we relax it to 60s for the demo so the
+    // signed-in UI doesn't reset mid-exploration. After the idle window the vault
+    // locks (status → session_expired) and signing requires re-auth; reveal ALWAYS
+    // re-authenticates regardless of the lock.
+    <AuthProvider apiBaseUrl="/api/auth" config={{ autoLockMs: 60_000 }}>
+      {children}
+    </AuthProvider>
   );
 }

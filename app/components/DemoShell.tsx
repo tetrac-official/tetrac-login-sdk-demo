@@ -233,7 +233,13 @@ export function DemoShell() {
 
         {authed && <SignMessageCard />}
 
-        {authed && <ExportKeyShowcase user={user!} />}
+        {authed && (
+          <ExportKeyShowcase
+            user={user!}
+            passkeyRegistration={bioReg}
+            walletSignMessage={walletSigner.current?.signMessage}
+          />
+        )}
 
         <div className="section-label">{authed ? "Try another method" : "Choose your method"}</div>
 
@@ -633,11 +639,19 @@ function SignMessageCard() {
 }
 
 // --- Export Key showcase ---
-// The drop-in alternative to the manual re-auth ceremony above. <ExportKeyPanel>
-// reads `appKey` from the session and reveals immediately — no second prompt.
-// That's the trade-off the demo wants to surface: the manual ceremony is for
-// apps that want Privy-style friction; the panel is for apps that don't.
-function ExportKeyShowcase({ user }: { user: UserData }) {
+// The drop-in <ExportKeyPanel>. It runs a fresh re-auth ceremony for every
+// reveal (passkey / Face ID / wallet signature) and derives a one-time key — it
+// never reads the session key, so it honors "Re-auth to reveal" just like the
+// manual ceremony above.
+function ExportKeyShowcase({
+  user,
+  passkeyRegistration,
+  walletSignMessage,
+}: {
+  user: UserData;
+  passkeyRegistration: PasskeyRegistration | null;
+  walletSignMessage?: (m: Uint8Array) => Promise<Uint8Array>;
+}) {
   // Default to the Solana funds wallet — that's the user's primary identity.
   const wallet = useMemo<EncryptedWallet | null>(
     () => user.wallets.find((w) => w.chain === "solana" && w.role === "funds") ?? user.wallets[0] ?? null,
@@ -652,8 +666,8 @@ function ExportKeyShowcase({ user }: { user: UserData }) {
         <h2>Or: drop-in &lt;ExportKeyPanel /&gt;</h2>
         <p>
           Same secret, less code. The SDK&apos;s optional UI ships a panel with auto-clear, clipboard wipe,
-          and a React-Native-WebView <code>postMessage</code> contract — no re-auth required, since the
-          session is already unlocked.
+          and a React-Native-WebView <code>postMessage</code> contract — and it re-authenticates on every
+          reveal, so the key never appears without a fresh ceremony.
         </p>
       </div>
       <ExportKeyPanel
@@ -661,11 +675,18 @@ function ExportKeyShowcase({ user }: { user: UserData }) {
         autoClearMs={45_000}
         clipboardClearMs={20_000}
         title={null}
-        description={`Reveals the ${wallet.chain.toUpperCase()} ${wallet.role} key. Auto-clears after 45 s; clipboard wipes after 20 s.`}
+        passkeyRegistration={passkeyRegistration}
+        walletSignMessage={walletSignMessage}
+        description={`Reveals the ${wallet.chain.toUpperCase()} ${wallet.role} key after re-auth. Auto-clears after 45 s; clipboard wipes after 20 s.`}
         appearance={{ accent: "#3a479e", radius: 10 }}
         styles={{
           root: { color: "var(--fg)", maxWidth: "100%" },
           description: { color: "var(--muted)" },
+          input: {
+            background: "var(--elevated)",
+            color: "var(--fg)",
+            border: "1px solid var(--border)",
+          },
           button: {
             background: "transparent",
             color: "var(--fg)",

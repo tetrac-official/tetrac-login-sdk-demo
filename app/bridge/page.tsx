@@ -91,7 +91,11 @@ function BridgeAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthProvider apiBaseUrl="/api/auth" externalSolanaAddress={externalAddress}>
+    <AuthProvider
+      apiBaseUrl="/api/auth"
+      config={{ autoLockMs: 60_000 }}
+      externalSolanaAddress={externalAddress}
+    >
       {children}
     </AuthProvider>
   );
