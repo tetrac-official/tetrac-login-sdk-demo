@@ -40,14 +40,7 @@ export default function Home() {
         <div className="nav-inner">
           <a href="#top" className="nav-brand" aria-label="tetrac login sdk">
             {/* Real brand mark — sits flush left, scaled tight to the wordmark. */}
-            <Image
-              src="/tetrac_dark.png"
-              alt=""
-              width={28}
-              height={28}
-              priority
-              className="nav-logo"
-            />
+            <Image src="/tetrac_dark.png" alt="" width={28} height={28} priority className="nav-logo" />
             tetrac<span className="nav-slash">/</span>
             <span className="grad">login-sdk</span>
           </a>
@@ -99,6 +92,9 @@ export default function Home() {
             <Link href="/ui" className="hero-btn hero-btn-outline">
               Open SDK UI
             </Link>
+            <Link href="/bridge" className="hero-btn hero-btn-outline">
+              External-wallet bridge
+            </Link>
           </div>
 
           {/* Terminal mockup — the visual signature of the hero. */}
@@ -119,8 +115,8 @@ export default function Home() {
                 </span>
                 <span className="t-line t-comment"># wrap your app once and you're done</span>
                 <span className="t-line">
-                  <span className="t-kw">import</span> {"{ AuthProvider }"}{" "}
-                  <span className="t-kw">from</span> <span className="t-str">&quot;@tetrac/login-sdk/react&quot;</span>;
+                  <span className="t-kw">import</span> {"{ AuthProvider }"} <span className="t-kw">from</span>{" "}
+                  <span className="t-str">&quot;@tetrac/login-sdk/react&quot;</span>;
                 </span>
               </code>
             </pre>

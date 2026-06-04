@@ -369,8 +369,7 @@ body {
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.02em;
-  font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 .terminal-body {
@@ -378,8 +377,7 @@ body {
   padding: 16px 18px;
   font-size: 13px;
   line-height: 1.7;
-  font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   color: var(--fg);
   overflow-x: auto;
 }
@@ -589,6 +587,54 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Buttons & inputs that match the SDK <LoginPanel> look: flat, bordered,
+   transparent (panel-coloured) background, radius 14, taller for touch. Used on
+   the bridge page so its custom controls read the same as the SDK UI. */
+.sdk-btn {
+  width: 100%;
+  padding: 16px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.sdk-btn:hover:not(:disabled) {
+  border-color: var(--secondary);
+}
+.sdk-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.sdk-field {
+  width: 100%;
+  padding: 16px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--elevated);
+  color: var(--fg);
+  font-size: 16px; /* >=16px: no iOS zoom on focus */
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.sdk-field:focus {
+  border-color: var(--secondary);
+}
+.sdk-textarea {
+  resize: vertical;
+  min-height: 84px;
 }
 
 .link {
@@ -810,6 +856,79 @@ body {
   color: #aab4ff;
   background: rgba(58, 71, 158, 0.22);
   border: 1px solid rgba(58, 71, 158, 0.5);
+}
+
+/* --- SDK vs custom labelling (bridge page) --- */
+.tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.tag-sdk {
+  color: #12bff8;
+  background: rgba(18, 191, 248, 0.12);
+  border-color: rgba(18, 191, 248, 0.35);
+}
+.tag-custom {
+  color: var(--muted);
+  background: transparent;
+}
+
+/* Two-column "SDK vs this page" explainer */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+.two-col h3 {
+  font-size: 16px;
+  margin: 6px 0 0;
+}
+.feature-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.feature-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.feature-list li::before {
+  content: "";
+  flex: 0 0 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.feature-list.sdk li::before {
+  background: #12bff8;
+}
+.feature-list code {
+  color: var(--fg);
 }
 
 .role {
@@ -1237,8 +1356,7 @@ body {
 
 .principle-num {
   display: inline-block;
-  font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1294,8 +1412,7 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   font-weight: 700;
   color: #000;
@@ -1317,8 +1434,7 @@ body {
 .install-snippet {
   margin: 0;
   padding: 12px 14px;
-  font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--fg);

@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keypair } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import nacl from "tweetnacl";
 import { verifyMessage } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { useAuth } from "@tetrac/login-sdk/react";
+import {
+  useAuth,
+  useUser,
+  useWallets,
+  useSolanaSigner,
+  useEvmSigner,
+  type WalletEntry,
+} from "@tetrac/login-sdk/react";
+import { ExportKeyPanel } from "@tetrac/login-sdk/ui";
 import {
   deriveAppKeyFromPasskey,
   deriveAppKeyFromSignature,
@@ -40,22 +47,37 @@ function getInjectedSolana(): {
 
 export function DemoShell() {
   const auth = useAuth();
+  // SDK now owns the cached user record. The provider fetches /user-data
+  // automatically on auth state change — no more local mirror.
+  const { user, loading: userLoading } = useUser();
   const [email, setEmail] = useState("alice@example.com");
   const [passkey, setPasskey] = useState("correct horse battery staple");
   const [log, setLog] = useState<LogLine[]>([]);
   const [bioReg, setBioReg] = useState<PasskeyRegistration | null>(null);
 
-  // Post-login state
-  const [user, setUser] = useState<UserData | null>(null);
-  const [method, setMethod] = useState<Method | null>(null);
+  // Which method this session was authenticated with — read from the cached
+  // user record so it survives a refetch and doesn't need a local mirror.
+  const method: Method | null = (user?.authMethod as Method | undefined) ?? null;
   const walletSigner = useRef<Signer | null>(null); // persisted so reveal can re-sign
 
-  // Reveal (re-auth) state
+  // Reveal (re-auth) state — deliberately kept as the demo's educational
+  // showcase: the SDK can't force re-auth, so the app does. The drop-in
+  // <ExportKeyPanel> alternative is shown side-by-side under SignMessageCard.
   const [unlockedKey, setUnlockedKey] = useState<string | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [gatePasskey, setGatePasskey] = useState("");
   const [gateError, setGateError] = useState<string | null>(null);
   const [shown, setShown] = useState<Set<string>>(new Set());
+
+  // Whenever the active session changes (new login / logout), drop the
+  // re-auth state so the next viewer has to unlock again.
+  useEffect(() => {
+    setUnlockedKey(null);
+    setGateOpen(false);
+    setGatePasskey("");
+    setGateError(null);
+    setShown(new Set());
+  }, [user?.publicKey]);
 
   const say = (ok: boolean, msg: string) =>
     setLog((l) => [{ ok, msg, time: new Date().toLocaleTimeString() }, ...l]);
@@ -72,25 +94,14 @@ export function DemoShell() {
     }
   }
 
-  function onAuthed(u: UserData, m: Method) {
-    // Normalize: older/edge records may lack the wallets array.
-    setUser({ ...u, wallets: Array.isArray(u.wallets) ? u.wallets : [] });
-    setMethod(m);
-    // New session → relock private keys until the user re-authenticates.
-    setUnlockedKey(null);
-    setGateOpen(false);
-    setGateError(null);
-    setShown(new Set());
-  }
-
   // --- Method handlers ---
+  // Auth actions just trigger the SDK — the provider's user-data fetch
+  // populates `user` shortly after status flips to "authenticated".
   const emailRegister = async () => {
-    const r = await track("Email sign-up", () => auth.registerWithEmail({ email, passkey }));
-    if (r) onAuthed(r.user, "email");
+    await track("Email sign-up", () => auth.registerWithEmail({ email, passkey }));
   };
   const emailLogin = async () => {
-    const r = await track("Email sign-in", () => auth.loginWithEmail({ email, passkey }));
-    if (r) onAuthed(r.user, "email");
+    await track("Email sign-in", () => auth.loginWithEmail({ email, passkey }));
   };
 
   const walletConnect = async () => {
@@ -125,32 +136,27 @@ export function DemoShell() {
       say(true, "No wallet installed — using a simulated key");
     }
     walletSigner.current = signer; // kept so reveal can re-sign the fixed message
-    const r = await track("Crypto wallet", () => auth.connectWallet(signer));
-    if (r) onAuthed(r.user, "wallet");
+    await track("Crypto wallet", () => auth.connectWallet(signer));
   };
 
   const bioRegister = async () => {
-    const r = await track("Biometric setup", async () => {
+    await track("Biometric setup", async () => {
       if (!(await isBiometricAvailable())) throw new Error("No Face ID / Touch ID on this device");
       const out = await auth.registerWithBiometric({ userName: "demo-user" });
       setBioReg(out.registration);
       return out;
     });
-    if (r) onAuthed(r.result.user, "biometric");
   };
   const bioLogin = async () => {
     if (!bioReg) return say(false, "Biometric sign-in — set up biometric first");
-    const r = await track("Biometric sign-in", () => auth.loginWithBiometric({ registration: bioReg }));
-    if (r) onAuthed(r.user, "biometric");
+    await track("Biometric sign-in", () => auth.loginWithBiometric({ registration: bioReg }));
   };
 
   const onLogout = () => {
     auth.logout();
-    setUser(null);
-    setMethod(null);
-    setUnlockedKey(null);
-    setGateOpen(false);
-    setShown(new Set());
+    walletSigner.current = null;
+    // user clears automatically via useUser when status flips to unauthenticated;
+    // reveal state clears via the effect on user?.publicKey above.
   };
 
   // --- Re-auth to unlock private keys ---
@@ -196,10 +202,18 @@ export function DemoShell() {
   }
 
   const authed = auth.isAuthenticated && user;
+  // Brief gap between login and the user-data fetch resolving.
+  const loadingWallets = auth.isAuthenticated && !user && userLoading;
 
   return (
     <div className="layout">
       <section>
+        {loadingWallets && (
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="log-empty">Loading your wallets…</div>
+          </div>
+        )}
+
         {authed && (
           <WalletsPanel
             user={user!}
@@ -217,7 +231,9 @@ export function DemoShell() {
           />
         )}
 
-        {authed && <SignMessageCard wallets={user!.wallets ?? []} appKey={unlockedKey} />}
+        {authed && <SignMessageCard />}
+
+        {authed && <ExportKeyShowcase user={user!} />}
 
         <div className="section-label">{authed ? "Try another method" : "Choose your method"}</div>
 
@@ -475,11 +491,16 @@ function WalletRow(props: {
 }
 
 // --- Sign Message card ---
-// Picks a wallet of the selected chain, decrypts its secret with the unlocked
-// appKey, signs the user-supplied message, and verifies the signature locally.
-// Solana uses tweetnacl; EVM uses viem. Both round-trips are fully offline — no RPC.
-function SignMessageCard(props: { wallets: EncryptedWallet[]; appKey: string | null }) {
-  const { wallets, appKey } = props;
+// Picks a wallet of the selected chain via useWallets() and signs through the
+// SDK's ready-made high-level signers (useSolanaSigner / useEvmSigner). The
+// envelope (decrypt → sign → drop) lives inside the SDK now — this component
+// only assembles the message and verifies the signature locally.
+// Note: signing succeeds whenever the session is alive — there's no "unlock to
+// sign" gate. The per-wallet reveal above is the only flow that re-auths,
+// matching how real wallets behave (you don't re-auth every tx, but you do
+// re-auth to view a private key).
+function SignMessageCard() {
+  const wallets = useWallets();
   const [chain, setChain] = useState<SignChain>("solana");
   const [message, setMessage] = useState("Hello from next-ttc-login");
   const [busy, setBusy] = useState(false);
@@ -487,38 +508,42 @@ function SignMessageCard(props: { wallets: EncryptedWallet[]; appKey: string | n
   const [result, setResult] = useState<{ publicKey: string; signature: string; valid: boolean } | null>(null);
 
   // Prefer the agent ("signing") wallet so the demo doesn't sign with the funds wallet by default.
-  const wallet = useMemo(
+  const wallet = useMemo<WalletEntry | null>(
     () =>
-      wallets.find((w) => w.chain === chain && w.role === "signing") ??
-      wallets.find((w) => w.chain === chain) ??
+      wallets.find((w: WalletEntry) => w.chain === chain && w.role === "signing") ??
+      wallets.find((w: WalletEntry) => w.chain === chain) ??
       null,
     [wallets, chain],
   );
+
+  // Hooks must be called unconditionally; gate the wallet arg by chain so each
+  // signer only receives the matching wallet type (the SDK throws otherwise).
+  const solWallet = wallet?.chain === "solana" ? wallet.encrypted : null;
+  const evmWallet = wallet?.chain === "evm" ? wallet.encrypted : null;
+  const solSigner = useSolanaSigner(solWallet);
+  const evmSigner = useEvmSigner(evmWallet);
 
   // Clear stale signature when the user flips chains or edits the message.
   useEffect(() => setResult(null), [chain, message]);
 
   async function sign() {
-    if (!appKey || !wallet) return;
+    if (!wallet) return;
     setBusy(true);
     setError(null);
     setResult(null);
     try {
-      // Decrypt the secret only for the duration of this handler — no long-lived plaintext key.
-      const secret = decryptWalletSecret(wallet, appKey);
       const msgBytes = new TextEncoder().encode(message);
 
       if (wallet.chain === "solana") {
-        const secretBytes = hexToBytes(secret); // 64-byte Solana secret key
-        const kp = Keypair.fromSecretKey(secretBytes);
-        const sig = nacl.sign.detached(msgBytes, secretBytes);
-        const valid = nacl.sign.detached.verify(msgBytes, sig, kp.publicKey.toBytes());
-        setResult({ publicKey: wallet.publicKey, signature: toBase64(sig), valid });
+        if (!solSigner) throw new Error("Solana signer unavailable (session locked?)");
+        const sig = await solSigner.signMessage(msgBytes);
+        const valid = nacl.sign.detached.verify(msgBytes, sig, new PublicKey(wallet.address).toBytes());
+        setResult({ publicKey: wallet.address, signature: toBase64(sig), valid });
       } else {
-        const account = privateKeyToAccount(secret as `0x${string}`);
-        const signature = await account.signMessage({ message });
-        const valid = await verifyMessage({ address: account.address, message, signature });
-        setResult({ publicKey: wallet.publicKey, signature, valid });
+        if (!evmSigner) throw new Error("EVM signer unavailable (session locked?)");
+        const signature = await evmSigner.signMessage({ message });
+        const valid = await verifyMessage({ address: evmSigner.address, message, signature });
+        setResult({ publicKey: wallet.address, signature, valid });
       }
     } catch (e) {
       setError((e as Error).message);
@@ -528,6 +553,10 @@ function SignMessageCard(props: { wallets: EncryptedWallet[]; appKey: string | n
   }
 
   const noWallet = wallets.length > 0 && !wallet;
+  // Disabled when no wallet exists for the chosen chain, the message is empty,
+  // we're mid-sign, or the session is locked (signer is null in that case).
+  const signer = wallet?.chain === "solana" ? solSigner : evmSigner;
+  const locked = !!wallet && !signer;
 
   return (
     <div className="card sign-card">
@@ -556,7 +585,7 @@ function SignMessageCard(props: { wallets: EncryptedWallet[]; appKey: string | n
 
       {wallet && (
         <div className="signing-as">
-          Signing as <code title={wallet.publicKey}>{shorten(wallet.publicKey)}</code>{" "}
+          Signing as <code title={wallet.address}>{shorten(wallet.address)}</code>{" "}
           <small>· {titleCase(wallet.role)} wallet</small>
         </div>
       )}
@@ -577,9 +606,9 @@ function SignMessageCard(props: { wallets: EncryptedWallet[]; appKey: string | n
       <button
         className="btn btn-primary"
         onClick={sign}
-        disabled={!appKey || !wallet || !message.trim() || busy}
+        disabled={!wallet || !message.trim() || busy || locked}
       >
-        {busy ? "Signing…" : !appKey ? "Unlock above to sign" : "Sign message"}
+        {busy ? "Signing…" : locked ? "Session locked — sign in again" : "Sign message"}
       </button>
 
       {error && (
@@ -599,6 +628,62 @@ function SignMessageCard(props: { wallets: EncryptedWallet[]; appKey: string | n
           <code className="sig-bytes">{result.signature}</code>
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Export Key showcase ---
+// The drop-in alternative to the manual re-auth ceremony above. <ExportKeyPanel>
+// reads `appKey` from the session and reveals immediately — no second prompt.
+// That's the trade-off the demo wants to surface: the manual ceremony is for
+// apps that want Privy-style friction; the panel is for apps that don't.
+function ExportKeyShowcase({ user }: { user: UserData }) {
+  // Default to the Solana funds wallet — that's the user's primary identity.
+  const wallet = useMemo<EncryptedWallet | null>(
+    () => user.wallets.find((w) => w.chain === "solana" && w.role === "funds") ?? user.wallets[0] ?? null,
+    [user.wallets],
+  );
+
+  if (!wallet) return null;
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="panel-head">
+        <h2>Or: drop-in &lt;ExportKeyPanel /&gt;</h2>
+        <p>
+          Same secret, less code. The SDK&apos;s optional UI ships a panel with auto-clear, clipboard wipe,
+          and a React-Native-WebView <code>postMessage</code> contract — no re-auth required, since the
+          session is already unlocked.
+        </p>
+      </div>
+      <ExportKeyPanel
+        wallet={wallet}
+        autoClearMs={45_000}
+        clipboardClearMs={20_000}
+        title={null}
+        description={`Reveals the ${wallet.chain.toUpperCase()} ${wallet.role} key. Auto-clears after 45 s; clipboard wipes after 20 s.`}
+        appearance={{ accent: "#3a479e", radius: 10 }}
+        styles={{
+          root: { color: "var(--fg)", maxWidth: "100%" },
+          description: { color: "var(--muted)" },
+          button: {
+            background: "transparent",
+            color: "var(--fg)",
+            border: "1px solid var(--border)",
+          },
+          primaryButton: {
+            background: "var(--brand-gradient)",
+            color: "#fff",
+            border: "none",
+          },
+          secretBlock: {
+            background: "var(--elevated)",
+            border: "1px solid var(--border)",
+            color: "var(--fg)",
+          },
+          error: { color: "var(--red)" },
+        }}
+      />
     </div>
   );
 }
@@ -651,12 +736,6 @@ function titleCase(s: string): string {
 }
 function toHex(b: Uint8Array): string {
   return [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
-}
-function hexToBytes(hex: string): Uint8Array {
-  const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
-  const out = new Uint8Array(clean.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
-  return out;
 }
 function toBase64(bytes: Uint8Array): string {
   let s = "";

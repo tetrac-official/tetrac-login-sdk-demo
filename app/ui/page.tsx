@@ -8,8 +8,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Providers } from "../providers";
-import { LoginPanel, type WalletConnector } from "@tetrac/login-sdk/ui";
-import { useAuth } from "@tetrac/login-sdk/react";
+import { LoginPanel, ExportKeyPanel, type WalletConnector } from "@tetrac/login-sdk/ui";
+import { Mail, Wallet, Fingerprint } from "lucide-react";
+import { useAuth, useActiveWallet } from "@tetrac/login-sdk/react";
 import type { PasskeyRegistration } from "@tetrac/login-sdk/client";
 import type { AuthResult } from "@tetrac/login-sdk/core";
 
@@ -50,6 +51,10 @@ const solanaConnector: WalletConnector = {
 
 function UIPageInner() {
   const { status, publicKey, email, logout } = useAuth();
+  // The active Solana wallet — the SDK picks "external connected wins, else
+  // embedded funds". The /ui page doesn't wire an external Solana wallet via
+  // externalSolanaAddress, so this resolves to the embedded funds entry.
+  const active = useActiveWallet();
   const [passkeyReg, setPasskeyReg] = useState<PasskeyRegistration | null>(null);
   const [lastResult, setLastResult] = useState<{ method: string; publicKey: string } | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -90,24 +95,22 @@ function UIPageInner() {
         </h1>
         <p>
           The whole sign-in surface below is a single <code>&lt;LoginPanel /&gt;</code> from the SDK&apos;s
-          optional <code>/ui</code> entry. No wallet adapter library, no custom forms — the demo just
-          passes a connector and a passkey-registration callback.
+          optional <code>/ui</code> entry. No wallet adapter library, no custom forms — the demo just passes a
+          connector and a passkey-registration callback.
         </p>
         <div className="trust">
           <Link href="/" className="link">
-            ← Back to the headless demo
+            ← Back to demo
           </Link>
         </div>
       </header>
 
       <section className="layout" style={{ marginTop: 24 }}>
         <div className="card" style={{ padding: 20 }}>
-          <h2 className="section-label" style={{ marginTop: 0 }}>
-            Login Panel
-          </h2>
-
           {/* The SDK component. Themed via `appearance` + `classNames` so it
-              picks up the demo's brand tokens without us hand-rolling a form. */}
+              picks up the demo's brand tokens without us hand-rolling a form.
+              "Log in or sign up" heading + per-method lucide icons come straight
+              from the SDK's <LoginPanel>. */}
           <LoginPanel
             methods={["email", "wallet", "biometric"]}
             emailMode="auto"
@@ -115,16 +118,20 @@ function UIPageInner() {
             passkeyRegistration={passkeyReg}
             onPasskeyRegistered={onPasskeyRegistered}
             biometricUserName="ui-demo@tetrac.local"
+            title="Log in or sign up"
+            icons={{
+              email: <Mail size={18} />,
+              wallet: <Wallet size={18} />,
+              biometric: <Fingerprint size={18} />,
+            }}
             onSuccess={onSuccess}
             onError={onError}
-            appearance={{ accent: "#3a479e", radius: 10 }}
+            appearance={{ radius: 14 }}
             // Per-slot inline overrides: dark-theme the panel using the demo's
-            // brand tokens. The SDK merges these on top of its defaults, so we
-            // only have to list what we want to change.
+            // brand tokens. Every button shares one flat colour — no gradient.
             styles={{
-              root: { color: "var(--fg)", maxWidth: "100%", gap: 18 },
+              root: { color: "var(--fg)", maxWidth: "100%" },
               title: { color: "var(--fg)" },
-              methodLabel: { color: "var(--muted)" },
               input: {
                 background: "var(--elevated)",
                 color: "var(--fg)",
@@ -136,16 +143,59 @@ function UIPageInner() {
                 border: "1px solid var(--border)",
               },
               primaryButton: {
-                background: "var(--brand-gradient)",
-                color: "#fff",
-                border: "none",
+                background: "transparent",
+                color: "var(--fg)",
+                border: "1px solid var(--border)",
               },
-              divider: { borderTop: "1px solid var(--border)" },
+              iconWrap: { border: "1px solid var(--border)", color: "var(--fg)" },
               error: { color: "var(--red)" },
               muted: { color: "var(--muted)" },
             }}
           />
         </div>
+
+        {/* Drop-in reveal: the second SDK-shipped panel. Renders only when
+            a session exists, so visitors can sign in via LoginPanel above and
+            then see the reveal flow without leaving the page. */}
+        {status === "authenticated" && active?.encrypted ? (
+          <div className="card" style={{ padding: 20, marginTop: 16 }}>
+            <h2 className="section-label" style={{ marginTop: 0 }}>
+              ExportKeyPanel
+            </h2>
+            <p style={{ margin: "0 0 14px", color: "var(--muted)" }}>
+              The companion to <code>&lt;LoginPanel /&gt;</code>: a themeable reveal panel for the active
+              Solana wallet. Handles auto-clear, clipboard wipe, and the React-Native-WebView{" "}
+              <code>postMessage</code> contract.
+            </p>
+            <ExportKeyPanel
+              wallet={active.encrypted}
+              autoClearMs={45_000}
+              clipboardClearMs={20_000}
+              title={null}
+              appearance={{ accent: "#3a479e", radius: 10 }}
+              styles={{
+                root: { color: "var(--fg)", maxWidth: "100%" },
+                description: { color: "var(--muted)" },
+                button: {
+                  background: "transparent",
+                  color: "var(--fg)",
+                  border: "1px solid var(--border)",
+                },
+                primaryButton: {
+                  background: "var(--brand-gradient)",
+                  color: "#fff",
+                  border: "none",
+                },
+                secretBlock: {
+                  background: "var(--elevated)",
+                  border: "1px solid var(--border)",
+                  color: "var(--fg)",
+                },
+                error: { color: "var(--red)" },
+              }}
+            />
+          </div>
+        ) : null}
 
         <aside className="sidebar">
           <div className="card" style={{ padding: 20 }}>
@@ -180,9 +230,7 @@ function UIPageInner() {
             ) : (
               <p style={{ margin: 0, color: "var(--muted)" }}>No login yet.</p>
             )}
-            {lastError ? (
-              <p style={{ margin: "8px 0 0", color: "var(--red)" }}>⚠ {lastError}</p>
-            ) : null}
+            {lastError ? <p style={{ margin: "8px 0 0", color: "var(--red)" }}>⚠ {lastError}</p> : null}
           </div>
         </aside>
       </section>
