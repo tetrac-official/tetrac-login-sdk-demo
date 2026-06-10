@@ -768,11 +768,7 @@ function SignMessageCard({
           </>
         )
       ) : (
-        <button
-          className="btn btn-primary"
-          onClick={sign}
-          disabled={!wallet || !message.trim() || busy}
-        >
+        <button className="btn btn-primary" onClick={sign} disabled={!wallet || !message.trim() || busy}>
           {busy ? "Signing…" : "Sign message"}
         </button>
       )}

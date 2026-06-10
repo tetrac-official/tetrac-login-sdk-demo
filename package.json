@@ -1,8 +1,8 @@
 {
   "name": "tetrac-login-sdk-demo",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
-  "description": "Demo Next.js app showcasing @tetrac-login-sdk: email/passkey, Web3 wallet, and biometric login with client-side wallet generation.",
+  "description": "Demo Next.js app showcasing @tetrac/login-sdk: email/passkey, Web3 wallet, and biometric login with client-side wallet generation.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

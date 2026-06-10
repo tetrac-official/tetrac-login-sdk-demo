@@ -7,10 +7,10 @@
 [![Solana](https://img.shields.io/badge/Solana-web3.js-9945FF?style=flat&logo=solana&logoColor=white)](https://solana.com/)
 [![viem](https://img.shields.io/badge/viem-EVM-FFC517?style=flat)](https://viem.sh/)
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-PRF-4285F4?style=flat&logo=webauthn&logoColor=white)](https://www.w3.org/TR/webauthn-3/)
-[![@tetrac/login-sdk](https://img.shields.io/badge/%40tetrac%2Flogin--sdk-0.2.0-3a479e?style=flat)](../tetrac-login-sdk)
+[![@tetrac/login-sdk](https://img.shields.io/npm/v/@tetrac/login-sdk?label=%40tetrac%2Flogin-sdk&color=3a479e&style=flat)](https://www.npmjs.com/package/@tetrac/login-sdk)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A minimal **Next.js (App Router)** demo of [`@tetrac-login-sdk`](../tetrac-login-sdk) showing all three
+A minimal **Next.js (App Router)** demo of [`@tetrac/login-sdk`](https://www.npmjs.com/package/@tetrac/login-sdk) showing all three
 login methods with **client-side, non-custodial wallet generation**:
 
 1. **Email + passkey** — derives an app key, generates + encrypts Solana/EVM wallets in the browser.
@@ -36,7 +36,7 @@ login methods with **client-side, non-custodial wallet generation**:
 | Framework          | [Next.js 16](https://nextjs.org/) (App Router, [Turbopack](https://turbo.build/pack))                                                           |
 | Language           | [TypeScript 5](https://www.typescriptlang.org/)                                                                                                 |
 | UI                 | [React 18](https://react.dev/)                                                                                                                  |
-| Auth SDK           | [`@tetrac/login-sdk`](../tetrac-login-sdk) `0.2.0` (local, linked via `file:`)                                                                  |
+| Auth SDK           | [`@tetrac/login-sdk`](https://www.npmjs.com/package/@tetrac/login-sdk) `^0.2.0` (from npm)                                                      |
 | Chains             | [@solana/web3.js](https://github.com/solana-labs/solana-web3.js), [viem](https://viem.sh/), [tweetnacl](https://github.com/dchest/tweetnacl-js) |
 | Biometric          | [WebAuthn PRF](https://w3c.github.io/webauthn/#prf-extension)                                                                                   |
 | Storage (optional) | [Redis](https://redis.io/) / [Vercel KV](https://vercel.com/storage/kv) / [Upstash](https://upstash.com/) — in-memory by default                |
@@ -45,33 +45,25 @@ login methods with **client-side, non-custodial wallet generation**:
 
 - **Node.js** ≥ 18 (recommended: v20 LTS via [nvm](https://github.com/nvm-sh/nvm))
 - **npm** (or yarn / pnpm — `npm` is what the lockfile is built against)
-- The sibling SDK repo cloned next to this one — the demo links it via
-  `"@tetrac-login-sdk": "file:../tetrac-login-sdk"`:
-  ```
-  TTC/
-  ├── next-ttc-login/        ← this repo
-  └── tetrac-login-sdk/         ← required sibling
-  ```
+
+The SDK is a published package — [`@tetrac/login-sdk`](https://www.npmjs.com/package/@tetrac/login-sdk) —
+pulled from npm on install. No sibling checkout required.
 
 ## 🚀 Run
 
 ```bash
-# 1. Build the SDK first — the consumer imports from its dist/.
-cd ../tetrac-login-sdk && npm install && npm run build
+# 1. Install dependencies (pulls @tetrac/login-sdk from npm).
+npm install
 
-# 2. Install the demo's deps (links @tetrac-login-sdk from ../tetrac-login-sdk).
-cd ../next-ttc-login && npm install
-
-# 3. Copy the env template (optional — zero config works out of the box).
+# 2. Copy the env template (optional — zero config works out of the box).
 cp .env.local.example .env.local
 
-# 4. Start the dev server.
+# 3. Start the dev server.
 npm run dev          # http://localhost:3000
 ```
 
-> While iterating on the SDK, run `npm run dev` (which is `tsup --watch`) in
-> `../tetrac-login-sdk` in a separate terminal so the demo picks up SDK changes
-> automatically. After significant SDK edits, `rm -rf .next` here once.
+> To move to a newer SDK release, bump it with `npm install @tetrac/login-sdk@latest`,
+> then clear `.next` once if HMR gets confused.
 
 ## 🔐 Environment
 
@@ -113,13 +105,13 @@ decrypt locally for signing. The server never sees a private key or the app key.
 flowchart LR
   subgraph Browser["🌐 Browser"]
     UI["DemoShell.tsx<br/>(useAuth)"]
-    Client["@tetrac-login-sdk/client<br/>+ /react"]
+    Client["@tetrac/login-sdk/client<br/>+ /react"]
     Mem["sessionStorage<br/>appKey · authToken"]
     Wallets["Solana + EVM<br/>wallets (decrypted<br/>on demand)"]
   end
   subgraph Server["🖥 Next.js Server"]
     Route["app/api/auth/[...action]<br/>createNextAuthRoutes()"]
-    SDKsrv["@tetrac-login-sdk/server"]
+    SDKsrv["@tetrac/login-sdk/server"]
   end
   subgraph Storage["🗄 Storage adapter"]
     Mem2["Memory · Redis · Vercel KV · Upstash"]
@@ -166,7 +158,7 @@ exchange all happen **before** any secret leaves the browser.
 sequenceDiagram
   autonumber
   actor U as User
-  participant B as Browser<br/>(@tetrac-login-sdk/client)
+  participant B as Browser<br/>(@tetrac/login-sdk/client)
   participant S as Server<br/>(/api/auth)
   participant DB as Storage
 
@@ -215,7 +207,7 @@ sequenceDiagram
 | [`app/lib/storage.ts`](app/lib/storage.ts)                               | Storage adapter (memory by default, Redis/KV/Upstash by env)                               |
 | [`app/providers.tsx`](app/providers.tsx)                                 | `<AuthProvider apiBaseUrl="/api/auth">`                                                    |
 | [`app/components/DemoShell.tsx`](app/components/DemoShell.tsx)           | `useAuth()` driving the three flows + the post-login wallets panel with re-auth key reveal |
-| [`next.config.mjs`](next.config.mjs)                                     | `turbopack.root` set so Turbopack can follow the SDK symlink                               |
+| [`next.config.mjs`](next.config.mjs)                                     | Externalizes the optional storage backends so only the configured one loads server-side    |
 
 Nothing here implements auth logic — it all comes from the SDK.
 
@@ -230,19 +222,14 @@ Nothing here implements auth logic — it all comes from the SDK.
 
 ## 🩺 Troubleshooting
 
-**`Module not found: Can't resolve '@tetrac-login-sdk/<subpath>'`**
-The SDK is reached through a symlink to `../tetrac-login-sdk`, which is outside this project's
-directory. Turbopack refuses to follow such symlinks unless `turbopack.root` covers both.
-This is already configured in [`next.config.mjs`](next.config.mjs) — if you see this error,
-make sure that file is intact and the sibling SDK exists at `../tetrac-login-sdk`.
+**`Module not found: Can't resolve '@tetrac/login-sdk/<subpath>'`**
+Reinstall dependencies (`rm -rf node_modules && npm install`) so the package and its
+`exports` subpaths (`/client`, `/react`, `/next`, `/ui`, …) resolve. Confirm you're on
+`@tetrac/login-sdk` ≥ 0.2.0 (`npm ls @tetrac/login-sdk`).
 
-**Edits to the SDK don't show up**
-The consumer reads `../tetrac-login-sdk/dist/` — you need to rebuild it. Use `npm run dev`
-inside the SDK for `tsup --watch`. Clear `.next` once if HMR gets confused.
-
-**TypeScript errors only at build time**
-The editor resolves SDK types from source; `next build` reads `dist/`. Make sure the SDK is
-built (`npm run build` in `../tetrac-login-sdk`) before `npm run build` here.
+**Picking up a new SDK release**
+Bump it with `npm install @tetrac/login-sdk@latest`, then re-run `npx tsc --noEmit` and
+`next build`. Clear `.next` once if HMR gets confused.
 
 ## 📄 License
 

@@ -458,11 +458,7 @@ function BridgePageInner() {
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      className="sdk-btn"
-                      onClick={unlockEmail}
-                      disabled={unlockBusy || !unlockPasskey}
-                    >
+                    <button className="sdk-btn" onClick={unlockEmail} disabled={unlockBusy || !unlockPasskey}>
                       {unlockBusy ? "Unlocking…" : "Unlock to sign"}
                     </button>
                     <button
@@ -506,11 +502,7 @@ function BridgePageInner() {
                 </>
               )
             ) : (
-              <button
-                className="sdk-btn"
-                onClick={signMessage}
-                disabled={!active || !message.trim() || busy}
-              >
+              <button className="sdk-btn" onClick={signMessage} disabled={!active || !message.trim() || busy}>
                 {busy ? "Signing…" : "Sign message"}
               </button>
             )}
