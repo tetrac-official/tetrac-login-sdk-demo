@@ -11,6 +11,7 @@ import {
   useSolanaSigner,
   useEvmSigner,
   type WalletEntry,
+  type ReauthCredentials,
 } from "@tetrac/login-sdk/react";
 import { ExportKeyPanel } from "@tetrac/login-sdk/ui";
 import {
@@ -78,6 +79,17 @@ export function DemoShell() {
     setGateError(null);
     setShown(new Set());
   }, [user?.publicKey]);
+
+  // SDK auto-lock (idle / tab hide) — re-lock the manual reveal ceremony in
+  // lockstep so the WalletsPanel can't show stale plaintext past auto-lock.
+  useEffect(() => {
+    if (!auth.isLocked) return;
+    setUnlockedKey(null);
+    setGateOpen(false);
+    setGatePasskey("");
+    setGateError(null);
+    setShown(new Set());
+  }, [auth.isLocked]);
 
   const say = (ok: boolean, msg: string) =>
     setLog((l) => [{ ok, msg, time: new Date().toLocaleTimeString() }, ...l]);
@@ -201,9 +213,13 @@ export function DemoShell() {
     });
   }
 
+  // `hasAccount` covers both "fully unlocked" and "locked" — panels must stay
+  // mounted while the vault is locked so the user can re-authenticate. `authed`
+  // is the strictly-unlocked variant used only for the status dot.
+  const hasAccount = auth.hasAccount && user;
   const authed = auth.isAuthenticated && user;
   // Brief gap between login and the user-data fetch resolving.
-  const loadingWallets = auth.isAuthenticated && !user && userLoading;
+  const loadingWallets = auth.hasAccount && !user && userLoading;
 
   return (
     <div className="layout">
@@ -214,7 +230,7 @@ export function DemoShell() {
           </div>
         )}
 
-        {authed && (
+        {hasAccount && (
           <WalletsPanel
             user={user!}
             method={method!}
@@ -231,9 +247,14 @@ export function DemoShell() {
           />
         )}
 
-        {authed && <SignMessageCard />}
+        {hasAccount && (
+          <SignMessageCard
+            passkeyRegistration={bioReg}
+            walletSignMessage={walletSigner.current?.signMessage}
+          />
+        )}
 
-        {authed && (
+        {hasAccount && (
           <ExportKeyShowcase
             user={user!}
             passkeyRegistration={bioReg}
@@ -241,7 +262,7 @@ export function DemoShell() {
           />
         )}
 
-        <div className="section-label">{authed ? "Try another method" : "Choose your method"}</div>
+        <div className="section-label">{hasAccount ? "Try another method" : "Choose your method"}</div>
 
         <div className="methods">
           <Method
@@ -311,13 +332,19 @@ export function DemoShell() {
           <div className="status-main">
             <span className={`dot ${authed ? "on" : "off"}`} />
             <div style={{ minWidth: 0 }}>
-              <div className="status-title">{authed ? "You're signed in" : "Not signed in yet"}</div>
+              <div className="status-title">
+                {hasAccount
+                  ? auth.isLocked
+                    ? "Vault locked — re-auth to sign"
+                    : "You're signed in"
+                  : "Not signed in yet"}
+              </div>
               <div className="status-sub">
                 {auth.publicKey ? shorten(auth.publicKey) : "Pick a method to get started"}
               </div>
             </div>
           </div>
-          {authed && (
+          {hasAccount && (
             <button className="btn-ghost" onClick={onLogout}>
               Sign out
             </button>
@@ -501,17 +528,36 @@ function WalletRow(props: {
 // SDK's ready-made high-level signers (useSolanaSigner / useEvmSigner). The
 // envelope (decrypt → sign → drop) lives inside the SDK now — this component
 // only assembles the message and verifies the signature locally.
-// Note: signing succeeds whenever the session is alive — there's no "unlock to
-// sign" gate. The per-wallet reveal above is the only flow that re-auths,
-// matching how real wallets behave (you don't re-auth every tx, but you do
-// re-auth to view a private key).
-function SignMessageCard() {
+//
+// Lock model (PRD §4 Tier 1): signing is allowed within the unlocked window;
+// after `autoLockMs` idle the vault locks and the signer hooks return null.
+// When locked, we render an "Unlock to sign" ceremony that routes through
+// auth.reauthenticate() to arm the SDK session — once unlocked, signing
+// continues without a per-signature prompt (PRD §6.2 "unlocked-window model").
+function SignMessageCard({
+  passkeyRegistration,
+  walletSignMessage,
+}: {
+  passkeyRegistration: PasskeyRegistration | null;
+  walletSignMessage?: (m: Uint8Array) => Promise<Uint8Array>;
+}) {
   const wallets = useWallets();
+  const { user } = useUser();
+  const auth = useAuth();
+  // The account's auth method picks which re-auth ceremony to render.
+  const method = (user?.authMethod as Method | undefined) ?? null;
+
   const [chain, setChain] = useState<SignChain>("solana");
   const [message, setMessage] = useState("Hello from next-ttc-login");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ publicKey: string; signature: string; valid: boolean } | null>(null);
+
+  // Unlock-to-sign ceremony state (only relevant while the vault is locked).
+  const [unlockBusy, setUnlockBusy] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlockGateOpen, setUnlockGateOpen] = useState(false);
+  const [unlockPasskey, setUnlockPasskey] = useState("");
 
   // Prefer the agent ("signing") wallet so the demo doesn't sign with the funds wallet by default.
   const wallet = useMemo<WalletEntry | null>(
@@ -531,6 +577,13 @@ function SignMessageCard() {
 
   // Clear stale signature when the user flips chains or edits the message.
   useEffect(() => setResult(null), [chain, message]);
+  // Drop any stale unlock UI as soon as the vault is armed again.
+  useEffect(() => {
+    if (auth.isLocked) return;
+    setUnlockError(null);
+    setUnlockGateOpen(false);
+    setUnlockPasskey("");
+  }, [auth.isLocked]);
 
   async function sign() {
     if (!wallet) return;
@@ -558,11 +611,48 @@ function SignMessageCard() {
     }
   }
 
+  // Run the active method's re-auth ceremony and arm the SDK session. After
+  // this resolves, the signer hooks observe the unlocked vault and sign()
+  // proceeds normally.
+  async function doUnlock(creds: ReauthCredentials) {
+    setUnlockBusy(true);
+    setUnlockError(null);
+    try {
+      await auth.reauthenticate(creds);
+      setUnlockGateOpen(false);
+      setUnlockPasskey("");
+    } catch (e) {
+      const msg = (e as Error).message || "Could not unlock.";
+      setUnlockError(method === "email" ? "Wrong passkey — try again." : msg);
+    } finally {
+      setUnlockBusy(false);
+    }
+  }
+
+  async function unlockEmail() {
+    if (!unlockPasskey) {
+      setUnlockGateOpen(true);
+      return;
+    }
+    await doUnlock({ passkey: unlockPasskey });
+  }
+  async function unlockWallet() {
+    if (!walletSignMessage) {
+      setUnlockError("Wallet session lost — sign in again.");
+      return;
+    }
+    await doUnlock({ signMessage: walletSignMessage });
+  }
+  async function unlockBiometric() {
+    if (!passkeyRegistration) {
+      setUnlockError("No passkey on file.");
+      return;
+    }
+    await doUnlock({ registration: passkeyRegistration });
+  }
+
   const noWallet = wallets.length > 0 && !wallet;
-  // Disabled when no wallet exists for the chosen chain, the message is empty,
-  // we're mid-sign, or the session is locked (signer is null in that case).
-  const signer = wallet?.chain === "solana" ? solSigner : evmSigner;
-  const locked = !!wallet && !signer;
+  const locked = auth.isLocked;
 
   return (
     <div className="card sign-card">
@@ -609,13 +699,83 @@ function SignMessageCard() {
         rows={3}
       />
 
-      <button
-        className="btn btn-primary"
-        onClick={sign}
-        disabled={!wallet || !message.trim() || busy || locked}
-      >
-        {busy ? "Signing…" : locked ? "Session locked — sign in again" : "Sign message"}
-      </button>
+      {locked ? (
+        method === "email" && unlockGateOpen ? (
+          // Email path: collect the passkey inline before arming the session.
+          <div className="gate">
+            <div className="gate-title">Enter your passkey to unlock signing</div>
+            <input
+              className="input"
+              type="password"
+              placeholder="enter your passkey"
+              value={unlockPasskey}
+              onChange={(e) => setUnlockPasskey(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && unlockEmail()}
+              autoFocus
+            />
+            {unlockError && <div className="gate-error">{unlockError}</div>}
+            <div className="gate-row">
+              <button
+                className="btn btn-primary"
+                onClick={unlockEmail}
+                disabled={unlockBusy || !unlockPasskey}
+              >
+                {unlockBusy ? "Unlocking…" : "Unlock to sign"}
+              </button>
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setUnlockGateOpen(false);
+                  setUnlockPasskey("");
+                  setUnlockError(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          // Lock banner with a per-method CTA. Wallet → re-sign the fixed
+          // app-key message; biometric → fresh Face ID / Touch ID prompt.
+          <>
+            <div className="lock-banner">
+              <span className="lock-text">
+                <ShieldIcon /> Vault is locked. Re-authenticate to sign.
+              </span>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  if (method === "email") unlockEmail();
+                  else if (method === "wallet") unlockWallet();
+                  else unlockBiometric();
+                }}
+                disabled={unlockBusy}
+              >
+                {unlockBusy
+                  ? "Unlocking…"
+                  : method === "email"
+                    ? "Unlock to sign"
+                    : method === "wallet"
+                      ? "Sign to unlock"
+                      : "Unlock with Face ID / Touch ID"}
+              </button>
+            </div>
+            {unlockError && (
+              <div className="gate-error" style={{ marginTop: 8 }}>
+                {unlockError}
+              </div>
+            )}
+          </>
+        )
+      ) : (
+        <button
+          className="btn btn-primary"
+          onClick={sign}
+          disabled={!wallet || !message.trim() || busy}
+        >
+          {busy ? "Signing…" : "Sign message"}
+        </button>
+      )}
 
       {error && (
         <div className="gate-error" style={{ marginTop: 10 }}>

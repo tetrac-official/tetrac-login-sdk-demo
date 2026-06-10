@@ -15,7 +15,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import nacl from "tweetnacl";
-import { AuthProvider, useActiveWallet, useAuth, useSolanaSigner } from "@tetrac/login-sdk/react";
+import {
+  AuthProvider,
+  useActiveWallet,
+  useAuth,
+  useSolanaSigner,
+  useUser,
+  type ReauthCredentials,
+} from "@tetrac/login-sdk/react";
 import { LoginPanel, type WalletConnector } from "@tetrac/login-sdk/ui";
 import { Mail, Wallet, Fingerprint } from "lucide-react";
 import type { PasskeyRegistration } from "@tetrac/login-sdk/client";
@@ -105,6 +112,10 @@ type LogLine = { ok: boolean; msg: string; time: string };
 
 function BridgePageInner() {
   const auth = useAuth();
+  const { user } = useUser();
+  // The account's auth method drives which re-auth ceremony we render when
+  // the embedded vault is locked.
+  const method = (user?.authMethod as "email" | "wallet" | "biometric" | undefined) ?? null;
   const active = useActiveWallet();
   // useSolanaSigner returns null when active.encrypted is null (external wallets)
   // OR when the session is locked. The signing handler routes accordingly.
@@ -120,6 +131,14 @@ function BridgePageInner() {
   } | null>(null);
   const [log, setLog] = useState<LogLine[]>([]);
   const [passkeyReg, setPasskeyReg] = useState<PasskeyRegistration | null>(null);
+
+  // Unlock-to-sign ceremony — only surfaces when the active wallet is the
+  // embedded one AND the SDK vault is locked. External wallets sign through
+  // the injected provider directly and don't care about the embedded lock.
+  const [unlockBusy, setUnlockBusy] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlockGateOpen, setUnlockGateOpen] = useState(false);
+  const [unlockPasskey, setUnlockPasskey] = useState("");
 
   const say = (ok: boolean, msg: string) =>
     setLog((l) => [{ ok, msg, time: new Date().toLocaleTimeString() }, ...l]);
@@ -145,6 +164,9 @@ function BridgePageInner() {
   // The injected wallet might not exist (no Phantom installed); guard once for
   // the entire UI so we can show a friendly hint.
   const hasInjected = typeof window !== "undefined" && !!getInjectedSolana();
+  // Only embedded signing cares about the SDK vault lock; external signing
+  // goes straight through the injected provider and is never gated by it.
+  const embeddedLocked = !!active?.isEmbedded && auth.isLocked;
 
   const connectExternal = useCallback(async () => {
     setBusy(true);
@@ -171,6 +193,62 @@ function BridgePageInner() {
       say(false, `Disconnect — ${(e as Error).message}`);
     }
   }, []);
+
+  // Re-run the active method's ceremony, validating against the first wallet,
+  // and arm the SDK session. After this resolves, useSolanaSigner returns a
+  // real signer again and the existing signMessage() path works as-is.
+  async function doUnlock(creds: ReauthCredentials) {
+    setUnlockBusy(true);
+    setUnlockError(null);
+    try {
+      await auth.reauthenticate(creds);
+      setUnlockGateOpen(false);
+      setUnlockPasskey("");
+      say(true, "Vault unlocked");
+    } catch (e) {
+      const msg = (e as Error).message || "Could not unlock.";
+      setUnlockError(method === "email" ? "Wrong passkey — try again." : msg);
+      say(false, `Unlock — ${msg}`);
+    } finally {
+      setUnlockBusy(false);
+    }
+  }
+
+  async function unlockEmail() {
+    if (!unlockPasskey) {
+      setUnlockGateOpen(true);
+      return;
+    }
+    await doUnlock({ passkey: unlockPasskey });
+  }
+  async function unlockWallet() {
+    const provider = getInjectedSolana();
+    if (!provider) {
+      setUnlockError("No Solana wallet detected.");
+      return;
+    }
+    await doUnlock({
+      signMessage: async (m) => {
+        const sig = await provider.signMessage(m, "utf8");
+        return sig instanceof Uint8Array ? sig : sig.signature;
+      },
+    });
+  }
+  async function unlockBiometric() {
+    if (!passkeyReg) {
+      setUnlockError("No passkey on file.");
+      return;
+    }
+    await doUnlock({ registration: passkeyReg });
+  }
+
+  // Drop any stale unlock UI as soon as the vault is armed again.
+  useEffect(() => {
+    if (auth.isLocked) return;
+    setUnlockError(null);
+    setUnlockGateOpen(false);
+    setUnlockPasskey("");
+  }, [auth.isLocked]);
 
   async function signMessage() {
     setSignResult(null);
@@ -361,9 +439,81 @@ function BridgePageInner() {
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
             />
-            <button className="sdk-btn" onClick={signMessage} disabled={!active || !message.trim() || busy}>
-              {busy ? "Signing…" : "Sign message"}
-            </button>
+            {embeddedLocked ? (
+              method === "email" && unlockGateOpen ? (
+                // Email path: collect the passkey before arming the session.
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <input
+                    type="password"
+                    className="sdk-field"
+                    placeholder="enter your passkey"
+                    value={unlockPasskey}
+                    onChange={(e) => setUnlockPasskey(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && unlockEmail()}
+                    autoFocus
+                  />
+                  {unlockError && (
+                    <div className="sig-meta" style={{ color: "var(--red)" }}>
+                      {unlockError}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      className="sdk-btn"
+                      onClick={unlockEmail}
+                      disabled={unlockBusy || !unlockPasskey}
+                    >
+                      {unlockBusy ? "Unlocking…" : "Unlock to sign"}
+                    </button>
+                    <button
+                      className="sdk-btn"
+                      style={{ background: "transparent" }}
+                      onClick={() => {
+                        setUnlockGateOpen(false);
+                        setUnlockPasskey("");
+                        setUnlockError(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Wallet / biometric path — direct ceremony with no inline input.
+                <>
+                  <button
+                    className="sdk-btn"
+                    onClick={() => {
+                      if (method === "email") unlockEmail();
+                      else if (method === "wallet") unlockWallet();
+                      else unlockBiometric();
+                    }}
+                    disabled={unlockBusy}
+                  >
+                    {unlockBusy
+                      ? "Unlocking…"
+                      : method === "email"
+                        ? "Unlock to sign"
+                        : method === "wallet"
+                          ? "Sign to unlock"
+                          : "Unlock with Face ID / Touch ID"}
+                  </button>
+                  {unlockError && (
+                    <div className="sig-meta" style={{ color: "var(--red)", marginTop: 8 }}>
+                      {unlockError}
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <button
+                className="sdk-btn"
+                onClick={signMessage}
+                disabled={!active || !message.trim() || busy}
+              >
+                {busy ? "Signing…" : "Sign message"}
+              </button>
+            )}
             {signResult ? (
               <div className="sig-result">
                 <div className={`sig-status ${signResult.valid ? "ok" : "err"}`}>
