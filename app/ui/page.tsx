@@ -164,8 +164,9 @@ function UIPageInner() {
             </h2>
             <p style={{ margin: "0 0 14px", color: "var(--muted)" }}>
               The companion to <code>&lt;LoginPanel /&gt;</code>: a themeable reveal panel for the active
-              Solana wallet. Handles auto-clear, clipboard wipe, and the React-Native-WebView{" "}
-              <code>postMessage</code> contract.
+              Solana wallet. Handles the per-method re-auth ceremony, auto-clear, and clipboard wipe.
+              (RN-WebView <code>postMessage</code> is available but <strong>opt-in</strong> — only enable it
+              inside a trusted native shell.)
             </p>
             <ExportKeyPanel
               wallet={active.encrypted}

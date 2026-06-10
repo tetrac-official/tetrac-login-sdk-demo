@@ -327,8 +327,10 @@
   dependencies:
     tslib "^2.8.0"
 
-"@tetrac/login-sdk@file:../tetrac-login-sdk":
-  version "0.1.0"
+"@tetrac/login-sdk@0.2.0":
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/@tetrac/login-sdk/-/login-sdk-0.2.0.tgz#0642817f958319fed33a0ef4cef84209fbc39673"
+  integrity sha512-DMwBzGhh31TEZU+/386yWiMxgcj+66z4gxSKxv66W943RmHgcIBn+Ew59BArzK2XxkCc+83q8ue3zGUsifS4iw==
   dependencies:
     crypto-es "^2.1.0"
 

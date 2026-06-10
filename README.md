@@ -7,6 +7,7 @@
 [![Solana](https://img.shields.io/badge/Solana-web3.js-9945FF?style=flat&logo=solana&logoColor=white)](https://solana.com/)
 [![viem](https://img.shields.io/badge/viem-EVM-FFC517?style=flat)](https://viem.sh/)
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-PRF-4285F4?style=flat&logo=webauthn&logoColor=white)](https://www.w3.org/TR/webauthn-3/)
+[![@tetrac/login-sdk](https://img.shields.io/badge/%40tetrac%2Flogin--sdk-0.2.0-3a479e?style=flat)](../tetrac-login-sdk)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A minimal **Next.js (App Router)** demo of [`@tetrac-login-sdk`](../tetrac-login-sdk) showing all three
@@ -35,7 +36,7 @@ login methods with **client-side, non-custodial wallet generation**:
 | Framework          | [Next.js 16](https://nextjs.org/) (App Router, [Turbopack](https://turbo.build/pack))                                                           |
 | Language           | [TypeScript 5](https://www.typescriptlang.org/)                                                                                                 |
 | UI                 | [React 18](https://react.dev/)                                                                                                                  |
-| Auth SDK           | [`@tetrac-login-sdk`](../tetrac-login-sdk) (local, linked via `file:`)                                                                          |
+| Auth SDK           | [`@tetrac/login-sdk`](../tetrac-login-sdk) `0.2.0` (local, linked via `file:`)                                                                  |
 | Chains             | [@solana/web3.js](https://github.com/solana-labs/solana-web3.js), [viem](https://viem.sh/), [tweetnacl](https://github.com/dchest/tweetnacl-js) |
 | Biometric          | [WebAuthn PRF](https://w3c.github.io/webauthn/#prf-extension)                                                                                   |
 | Storage (optional) | [Redis](https://redis.io/) / [Vercel KV](https://vercel.com/storage/kv) / [Upstash](https://upstash.com/) — in-memory by default                |
