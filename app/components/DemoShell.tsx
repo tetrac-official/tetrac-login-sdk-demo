@@ -28,6 +28,7 @@ import {
   type PasskeyRegistration,
 } from "@tetrac/login-sdk/client";
 import { MailIcon, WalletIcon, FingerprintIcon, ShieldIcon } from "./icons";
+import { APP_ID } from "../lib/appConfig";
 
 type SignChain = "solana" | "evm";
 
@@ -180,12 +181,12 @@ export function DemoShell() {
     try {
       let key: string;
       if (method === "email") {
-        key = deriveAppKeyFromPasskey(gatePasskey, user.email ?? "");
+        key = deriveAppKeyFromPasskey(gatePasskey, user.email ?? "", user.pbkdf2Iterations);
       } else if (method === "wallet") {
         const signer = walletSigner.current;
         if (!signer) throw new Error("Wallet session lost — sign in again");
         // Re-sign the fixed message → same deterministic signature → same key.
-        const sig = await signer.signMessage(new TextEncoder().encode(walletAppKeyMessage()));
+        const sig = await signer.signMessage(new TextEncoder().encode(walletAppKeyMessage(APP_ID)));
         key = deriveAppKeyFromSignature(toHex(sig));
       } else {
         if (!bioReg) throw new Error("No passkey on file");
@@ -473,6 +474,25 @@ function WalletRow(props: {
 }) {
   const { wallet, unlockedKey, shown } = props;
   const [copied, setCopied] = useState(false);
+  const [secret, setSecret] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!shown || !unlockedKey) {
+      setSecret(null);
+      return;
+    }
+    let cancelled = false;
+    decryptWalletSecret(wallet, unlockedKey)
+      .then((s) => {
+        if (!cancelled) setSecret(s);
+      })
+      .catch(() => {
+        if (!cancelled) setSecret("(failed to decrypt)");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shown, unlockedKey, wallet]);
 
   const copy = (text: string) => {
     navigator.clipboard?.writeText(text);
@@ -481,14 +501,6 @@ function WalletRow(props: {
   };
 
   const isSol = wallet.chain === "solana";
-  let secret: string | null = null;
-  if (shown && unlockedKey) {
-    try {
-      secret = decryptWalletSecret(wallet, unlockedKey);
-    } catch {
-      secret = "(failed to decrypt)";
-    }
-  }
 
   return (
     <div className="wallet-row">

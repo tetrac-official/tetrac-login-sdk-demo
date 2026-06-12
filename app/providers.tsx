@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { AuthProvider } from "@tetrac/login-sdk/react";
+import { APP_ID } from "./lib/appConfig";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -12,7 +13,7 @@ export function Providers({ children }: { children: ReactNode }) {
     // signed-in UI doesn't reset mid-exploration. After the idle window the vault
     // locks (status → session_expired) and signing requires re-auth; reveal ALWAYS
     // re-authenticates regardless of the lock.
-    <AuthProvider apiBaseUrl="/api/auth" config={{ autoLockMs: 60_000 }}>
+    <AuthProvider apiBaseUrl="/api/auth" config={{ appId: APP_ID, autoLockMs: 60_000 }}>
       {children}
     </AuthProvider>
   );

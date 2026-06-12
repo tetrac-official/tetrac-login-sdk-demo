@@ -7,12 +7,12 @@
 // passkey registration.
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Providers } from "../providers";
 import { LoginPanel, ExportKeyPanel, type WalletConnector } from "@tetrac/login-sdk/ui";
 import { Mail, Wallet, Fingerprint } from "lucide-react";
-import { useAuth, useActiveWallet } from "@tetrac/login-sdk/react";
+import { AuthProvider, useAuth, useActiveWallet } from "@tetrac/login-sdk/react";
 import type { PasskeyRegistration } from "@tetrac/login-sdk/client";
 import type { AuthResult } from "@tetrac/login-sdk/core";
+import { APP_ID } from "../lib/appConfig";
 
 const PASSKEY_STORAGE_KEY = "ttc-demo-passkey-reg";
 
@@ -255,11 +255,12 @@ function UIPageInner() {
 }
 
 export default function UIPage() {
-  // Wrap in <Providers> so this route works standalone if the user lands on it
-  // before the root page has mounted the AuthProvider tree.
+  // lockOnHide: false — wallet signing opens a popup that briefly backgrounds
+  // the page. With lockOnHide: true the vault would lock before the signature
+  // returns, causing session_expired and unmounting the ExportKeyPanel.
   return (
-    <Providers>
+    <AuthProvider apiBaseUrl="/api/auth" config={{ appId: APP_ID, autoLockMs: 60_000, lockOnHide: false }}>
       <UIPageInner />
-    </Providers>
+    </AuthProvider>
   );
 }

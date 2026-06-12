@@ -95,6 +95,9 @@ export default function Home() {
             <Link href="/bridge" className="hero-btn hero-btn-outline">
               External-wallet bridge
             </Link>
+            <Link href="/biometric" className="hero-btn hero-btn-outline">
+              Biometric unlock
+            </Link>
           </div>
 
           {/* Terminal mockup — the visual signature of the hero. */}

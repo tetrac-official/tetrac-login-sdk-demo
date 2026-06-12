@@ -13,5 +13,9 @@ export const { GET, POST } = createNextAuthRoutes({
     // Vercel sets x-forwarded-for from its own edge — trust it there so rate
     // limiting is per-visitor. Local dev has no proxy: leave untrusted.
     trustProxyHeaders: !!process.env.VERCEL,
+    // Rightmost XFF hop after 0 trusted proxies (Vercel single-edge default).
+    trustedProxyHops: 0,
+    // OWASP-2023 minimum: 600k PBKDF2 iterations. Pinned per-user on register.
+    securityLevel: 2,
   },
 });
