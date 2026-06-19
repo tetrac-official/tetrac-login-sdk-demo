@@ -355,6 +355,9 @@ decrypted key can sit in memory for an XSS to race against — in production pre
 Revealing a plaintext key always re-runs the auth ceremony regardless of the lock, and the key is never
 written to `localStorage`/`sessionStorage` — only the non-secret session token, public key, and email.
 
+### 5. Setup your appId
+[app id in config](./app/lib/appConfig.ts)
+
 ## 🩺 Troubleshooting
 
 **`Module not found: Can't resolve '@tetrac/login-sdk/<subpath>'`**
