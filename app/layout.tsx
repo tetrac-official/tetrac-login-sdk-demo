@@ -8,9 +8,17 @@ export const metadata: Metadata = {
     "Three ways to sign in: email & passkey, crypto wallet, or biometric. Your wallet is created and encrypted on your device.",
 };
 
-// CSP is applied per-request by middleware.ts (nonce-based). Next.js App Router
-// automatically reads the x-nonce request header middleware sets and applies it
-// to its own inline script tags — no extra wiring needed here.
+// CSP is applied per-request by proxy.ts (nonce-based). Next.js reads the nonce
+// from the Content-Security-Policy *request* header at render time and stamps it
+// onto every <script> tag it emits (inline hydration scripts + chunk loaders).
+//
+// That injection only happens when the route is rendered per-request. Without
+// this, the pages have no dynamic data, so they're statically prerendered at
+// build time (and CDN-cached), the per-request nonce never reaches the HTML, and
+// every script is blocked by 'strict-dynamic'. force-dynamic opts all routes
+// under this layout into dynamic rendering so the nonce is always applied.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">

@@ -28,8 +28,10 @@ export function proxy(request: NextRequest) {
     "upgrade-insecure-requests",
   ].join("; ");
 
-  // Forward nonce to server components via request header. Next.js App Router
-  // reads x-nonce automatically and applies it to its own inline script tags.
+  // Next.js extracts the nonce from the Content-Security-Policy *request* header
+  // at render time and applies it to every <script> it emits (see app-render's
+  // getScriptNonceFromHeader). x-nonce is also forwarded so server components can
+  // read it via headers() if they need to tag their own inline scripts.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", csp);

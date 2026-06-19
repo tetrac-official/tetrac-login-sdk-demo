@@ -356,6 +356,7 @@ Revealing a plaintext key always re-runs the auth ceremony regardless of the loc
 written to `localStorage`/`sessionStorage` — only the non-secret session token, public key, and email.
 
 ### 5. Setup your appId
+
 [app id in config](./app/lib/appConfig.ts)
 
 ## 🩺 Troubleshooting
