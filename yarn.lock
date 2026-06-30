@@ -384,10 +384,10 @@
   dependencies:
     tslib "^2.8.0"
 
-"@tetrac/login-sdk@0.4.2":
-  version "0.4.2"
-  resolved "https://registry.yarnpkg.com/@tetrac/login-sdk/-/login-sdk-0.4.2.tgz#c4e9672c4f0af590ed59c0265406d1d4faf821a8"
-  integrity sha512-hzvX+L3iIW5FV8iNhvt6dxLWdDv8f2WEJZdudvFRaUVecDowUP2sQmNHL/xnBsqUHhDyQEbtkxMHFWpS/Pft9A==
+"@tetrac/login-sdk@0.4.3":
+  version "0.4.3"
+  resolved "https://registry.yarnpkg.com/@tetrac/login-sdk/-/login-sdk-0.4.3.tgz#2f3cdf7638af97887c08646d8e70bfd2b887ec90"
+  integrity sha512-T7Msh83gYoQfTqkZmncyWnC5iroBHzRRPpcoJXzI/FjcgO7qwuA//W0BfPghORSoWXxwfpADI9N+ZxtLUlxahw==
   dependencies:
     "@noble/hashes" "2.2.0"
 

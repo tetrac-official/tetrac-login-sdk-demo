@@ -96,8 +96,14 @@ function LedgerInner() {
       if (!selected) throw new Error("Select a derived address first");
       // One signer bound to the selected path/address. connectWallet calls its
       // signMessage twice (ownership + app-key) — approve both on the device.
+      // hardwareWallet: true → the app-key message is newline-free so the Ledger
+      // can clear-sign it (a newline triggers 0x6a82 / blind-signing on the device).
       const signer = ledger.getSolanaSigner({ path: selected.path, address: selected.address });
-      await auth.connectWallet({ publicKey: selected.address, signMessage: signer.signMessage });
+      await auth.connectWallet({
+        publicKey: selected.address,
+        signMessage: signer.signMessage,
+        hardwareWallet: true,
+      });
       say(true, `Signed in as ${shorten(selected.address)} (off-chain signature accepted)`);
     });
 
