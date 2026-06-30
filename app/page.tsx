@@ -101,6 +101,9 @@ export default function Home() {
             <Link href="/ledger" className="hero-btn hero-btn-outline">
               Ledger login
             </Link>
+            <Link href="/ledger-phantom" className="hero-btn hero-btn-outline">
+              Phantom + Ledger
+            </Link>
           </div>
 
           {/* Terminal mockup — the visual signature of the hero. */}

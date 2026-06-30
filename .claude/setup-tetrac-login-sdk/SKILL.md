@@ -472,6 +472,40 @@ await reveal({ signMessage: signer.signMessage, hardwareWallet: true });
 > `offchainMessageCandidates(msg, pubkeyBytes)` from `@tetrac/login-sdk/ledger`,
 > not `nacl.sign.detached.verify(msg, …)`.
 
+### Two ways to reach the device: direct WebUSB vs Phantom
+
+The snippet above talks to the Ledger **directly** over WebUSB/WebHID. You can
+also sign in through **Phantom** when the user's active Phantom account is itself
+a Ledger account — Phantom forwards `signMessage` to the device. The SDK call is
+identical (it only needs `{ publicKey, signMessage, hardwareWallet }`); only the
+source of `signMessage` changes:
+
+```ts
+// Phantom path — provider.publicKey is the (Ledger-backed) account the user
+// already selected in Phantom. Still hardware → still hardwareWallet: true.
+const provider = (window as any).phantom?.solana ?? (window as any).solana;
+await provider.connect();
+const signMessage = async (m: Uint8Array) => {
+  const res = await provider.signMessage(m, "utf8");
+  return res instanceof Uint8Array ? res : res.signature;
+};
+await auth.connectWallet({ publicKey: provider.publicKey.toString(), signMessage, hardwareWallet: true });
+```
+
+Two caveats specific to the Phantom path:
+
+- **Phantom must support Ledger _message_ signing.** It is reliable for
+  transaction signing but historically spotty for off-chain messages (which is
+  what this SDK authenticates with). Direct WebUSB is the guaranteed fallback.
+- **Don't mix paths for one account.** The app key is derived from the exact
+  signature bytes, and Phantom may emit a different off-chain envelope than the
+  direct path — so an account registered via direct WebUSB may _log in_ via
+  Phantom but its embedded blob won't _decrypt_. Pick one path per account.
+
+Phantom exposes no "is this a Ledger" flag, so detect by signing a short ASCII
+probe and checking whether it verifies as raw bytes (software) or against
+`offchainMessageCandidates()` (hardware) — or just ask the user.
+
 ### No server changes
 
 `createNextAuthRoutes()` from Step 4 already verifies hardware logins — the
