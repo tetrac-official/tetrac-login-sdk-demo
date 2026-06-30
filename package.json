@@ -13,8 +13,11 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,mjs,css,md}\""
   },
   "dependencies": {
+    "@ledgerhq/hw-app-solana": "7.10.4",
+    "@ledgerhq/hw-transport-webhid": "6.35.4",
+    "@ledgerhq/hw-transport-webusb": "6.34.4",
     "@solana/web3.js": "1.98.4",
-    "@tetrac/login-sdk": "0.4.0",
+    "@tetrac/login-sdk": "0.4.2",
     "@upstash/redis": "1.38.0",
     "@vercel/kv": "3.0.0",
     "ioredis": "^5.11.0",

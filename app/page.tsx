@@ -98,6 +98,9 @@ export default function Home() {
             <Link href="/biometric" className="hero-btn hero-btn-outline">
               Biometric unlock
             </Link>
+            <Link href="/ledger" className="hero-btn hero-btn-outline">
+              Ledger login
+            </Link>
           </div>
 
           {/* Terminal mockup — the visual signature of the hero. */}
