@@ -17,7 +17,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import nacl from "tweetnacl";
-import { AuthProvider, useAuth, useUser, useSolanaSigner } from "@tetrac/login-sdk/react";
+import { AuthProvider, useAuth, useUser, useSolanaSigner, useExportKey } from "@tetrac/login-sdk/react";
 import { useSolanaLedger, offchainMessageCandidates } from "@tetrac/login-sdk/ledger";
 import type { EncryptedWallet } from "@tetrac/login-sdk/core";
 import { APP_ID } from "../lib/appConfig";
@@ -70,6 +70,17 @@ function LedgerInner() {
     [user],
   );
   const embeddedSigner = useSolanaSigner(embeddedWallet);
+
+  // Reveal the embedded wallet's PLAINTEXT private key behind a fresh ceremony.
+  // useExportKey re-derives a one-time decryption key from a new Ledger signature
+  // (it never reads the armed session key) — so revealing always costs a physical
+  // device approval, honoring "Re-auth to reveal". Auto-clears after 60 s.
+  const {
+    reveal: revealEmbedded,
+    clear: clearEmbedded,
+    plaintext: embeddedSecret,
+    loading: revealLoading,
+  } = useExportKey(embeddedWallet, { autoClearMs: 60_000 });
 
   // --- Device actions ---
   const connect = () =>
@@ -132,6 +143,22 @@ function LedgerInner() {
       setEmbeddedSig({ valid, signature: toBase64(sig) });
       say(valid, `Embedded wallet decrypted & signed ${valid ? "✓" : "FAILED"}`);
     });
+
+  // --- Reveal the embedded private key (fresh Ledger ceremony, Problem 2) ---
+  const revealEmbeddedKey = () =>
+    run("Reveal embedded key", "reveal", async () => {
+      if (!selected) throw new Error("Select the signed-in Ledger account first");
+      if (!embeddedWallet) throw new Error("No embedded wallet on this account");
+      // Same hardware account + newline-free app-key message as login → same
+      // deterministic signature → the one-time key that unwraps the blob.
+      const signer = ledger.getSolanaSigner({ path: selected.path, address: selected.address });
+      await revealEmbedded({ signMessage: signer.signMessage, hardwareWallet: true });
+      say(true, "Embedded private key revealed — clears in 60 s");
+    });
+
+  const copyKey = () => {
+    if (embeddedSecret) navigator.clipboard?.writeText(embeddedSecret);
+  };
 
   const disconnect = () =>
     run("Disconnect", "disconnect", async () => {
@@ -319,6 +346,61 @@ function LedgerInner() {
                 </>
               ) : (
                 <p style={{ margin: 0, color: "var(--muted)" }}>No embedded wallet on this account.</p>
+              )}
+            </div>
+          )}
+
+          {/* Step 4 — Reveal the plaintext signing key (fresh ceremony) */}
+          {authed && embeddedWallet && (
+            <div className="card" style={{ padding: 20, marginTop: 16 }}>
+              <div className="panel-head">
+                <h2>4 · Reveal the private key</h2>
+                <p>
+                  A separate one-time decrypt: <code>reveal({"{ signMessage, hardwareWallet: true }"})</code>{" "}
+                  re-signs the app-key message on the device to derive the decryption key — independent of the
+                  vault, so a reveal always costs a physical approval. Auto-clears after 60 s.
+                </p>
+              </div>
+              <div className="wallet-row">
+                <div className="wallet-row-top">
+                  <span className="badge badge-sol">SOL</span>
+                  <span className="role">{embeddedWallet.role} · agent</span>
+                </div>
+                <code className="key" title={embeddedWallet.publicKey}>
+                  {shorten(embeddedWallet.publicKey)}
+                </code>
+              </div>
+
+              {!embeddedSecret ? (
+                <button
+                  className="btn btn-primary"
+                  style={{ marginTop: 12 }}
+                  onClick={revealEmbeddedKey}
+                  disabled={!selected || busy === "reveal" || revealLoading}
+                >
+                  {busy === "reveal" || revealLoading
+                    ? "Confirm on device…"
+                    : "Reveal private key (sign on device)"}
+                </button>
+              ) : (
+                <div className="secret" style={{ marginTop: 12 }}>
+                  <span className="warn">⚠ Private key — never share this.</span>
+                  <code>{embeddedSecret}</code>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button className="mini-btn" onClick={copyKey}>
+                      Copy
+                    </button>
+                    <button className="mini-btn danger" onClick={clearEmbedded}>
+                      Clear now
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!selected && (
+                <p style={{ margin: "10px 0 0", color: "var(--muted)" }}>
+                  Keep your Ledger connected and the signed-in account selected above to reveal.
+                </p>
               )}
             </div>
           )}

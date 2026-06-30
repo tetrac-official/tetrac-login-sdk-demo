@@ -5,7 +5,7 @@
 Use this skill when a user asks to:
 
 - Add `@tetrac/login-sdk` to a new or existing Next.js project
-- Set up email/passkey, Web3 wallet, or biometric login
+- Set up email/passkey, Web3 wallet, biometric, or **Ledger hardware-wallet** login
 - Wire up the SDK's auth routes, storage adapter, and React provider
 - Understand the complete integration checklist for the SDK
 
@@ -362,6 +362,138 @@ signing — it limits the window a decrypted key sits in memory.
 
 ---
 
+## Step 7.5 — Ledger hardware-wallet sign-in (how it differs from Web3 wallet login)
+
+A Ledger login is the **same `connectWallet()` flow** as a software wallet — it
+still supplies a `publicKey` + `signMessage` and the server still does
+challenge/sign/verify. But a hardware device cannot produce a bare ed25519
+signature over arbitrary bytes; it signs a **Solana off-chain message envelope**,
+and its firmware only clear-signs **newline-free printable ASCII**. That single
+constraint drives every difference below.
+
+### What's different at a glance
+
+| Concern               | Software wallet (Phantom)                  | Ledger hardware wallet                                                             |
+| --------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Signer source         | `window.solana` / `window.phantom.solana`  | `useSolanaLedger()` from `@tetrac/login-sdk/ledger` (native WebUSB/WebHID)         |
+| Extra deps            | none                                       | `@ledgerhq/hw-app-solana`, `@ledgerhq/hw-transport-webusb`, `…-webhid`             |
+| App-key message       | `walletAppKeyMessage(appId)` (has newline) | `walletAppKeyMessageHw(appId)` (newline-free) — selected by `hardwareWallet: true` |
+| Signature encoding    | raw message bytes                          | off-chain envelope (legacy 20-byte or v0 85-byte header)                           |
+| Prompts at login      | one popup                                  | **two device approvals** (ownership + app-key)                                     |
+| Server verification   | automatic                                  | automatic — `verifySolanaSignature` tries raw, then every off-chain candidate      |
+| Provider `lockOnHide` | `false` (popup backgrounds the tab)        | `false` (the device prompt backgrounds the tab — same reason)                      |
+| Runtime requirement   | any modern browser                         | Chrome/Edge over HTTPS (or localhost), Solana app open & unlocked                  |
+
+> **The one flag that matters: `hardwareWallet: true`.** It switches key
+> derivation from `walletAppKeyMessage()` to the newline-free
+> `walletAppKeyMessageHw()`. Omit it on a Ledger and the device rejects the
+> message (status `0x6a82`) or demands Blind Signing — and even if it signs, the
+> SDK derives the key from the **wrong domain string**, so the embedded blob never
+> decrypts. It must be passed **identically at register, login, unlock, and
+> reveal** (see the consistency rule below).
+
+### Install the transport deps
+
+```bash
+npm install @ledgerhq/hw-app-solana @ledgerhq/hw-transport-webusb @ledgerhq/hw-transport-webhid
+```
+
+These are only needed on the page that talks to the device — they are
+browser-only (they touch `navigator.usb` / `navigator.hid`) and the SDK imports
+them dynamically so they never execute during SSR.
+
+### The page
+
+`@tetrac/login-sdk/ledger` is a **separate subpath** (not in `/react`). Its
+`useSolanaLedger()` hook owns the transport, address derivation, and produces a
+wallet-adapter-shaped signer — you never read `window.solana`.
+
+```tsx
+"use client";
+
+import { AuthProvider, useAuth } from "@tetrac/login-sdk/react";
+import { useSolanaLedger } from "@tetrac/login-sdk/ledger";
+import { APP_ID } from "../lib/appConfig";
+
+function LedgerLogin() {
+  const ledger = useSolanaLedger();
+  const auth = useAuth();
+
+  // connect() → deriveAddresses() → user picks one → signIn(path, address)
+  async function signIn(path: string, address: string) {
+    // Wallet-adapter-shaped signer bound to the chosen device account.
+    const signer = ledger.getSolanaSigner({ path, address });
+    // connectWallet calls signer.signMessage TWICE (ownership + app-key) —
+    // the user approves both on the device.
+    await auth.connectWallet({
+      publicKey: address,
+      signMessage: signer.signMessage,
+      hardwareWallet: true, // ← required: newline-free app-key message
+    });
+  }
+
+  return null; /* render: Connect → Derive → select address → Sign in */
+}
+
+export default function LedgerPage() {
+  return (
+    <AuthProvider
+      apiBaseUrl="/api/auth"
+      // lockOnHide:false — the on-device confirmation briefly backgrounds the
+      // tab; with the default true the vault locks before signing returns.
+      // walletGen: a single signing agent so there's exactly one embedded blob
+      // (the Ledger itself is the funds identity).
+      config={{ appId: APP_ID, autoLockMs: 120_000, lockOnHide: false }}
+      walletGen={{ solana: ["signing"] }}
+    >
+      <LedgerLogin />
+    </AuthProvider>
+  );
+}
+```
+
+### The consistency rule (register = login = unlock = reveal)
+
+Because a hardware account derives its app key from the **newline-free** message,
+**every** ceremony that re-derives that key must pass `hardwareWallet: true`.
+Mixing forms derives a different key and silently fails to decrypt:
+
+```ts
+// Unlock the vault again after an auto-lock:
+await auth.reauthenticate({ signMessage: signer.signMessage, hardwareWallet: true });
+
+// Reveal a plaintext key behind a fresh device approval (useExportKey):
+await reveal({ signMessage: signer.signMessage, hardwareWallet: true });
+```
+
+> The off-chain `signMessage` returns a signature that verifies against the
+> **envelope**, not the raw bytes. If you verify a Ledger signature yourself
+> (e.g. a "sign a test message" demo), check it against
+> `offchainMessageCandidates(msg, pubkeyBytes)` from `@tetrac/login-sdk/ledger`,
+> not `nacl.sign.detached.verify(msg, …)`.
+
+### No server changes
+
+`createNextAuthRoutes()` from Step 4 already verifies hardware logins — the
+server tries the raw encoding first, then every off-chain envelope candidate, and
+every candidate still embeds the single-use challenge, so replay protection is
+unchanged. There is **no Ledger-specific server config**.
+
+### Optional hardening (`next.config.mjs`)
+
+WebUSB/WebHID work same-origin by default, so the Step 6 setup needs no change.
+To be explicit, you can name them in the `Permissions-Policy`:
+
+```js
+// add usb=(self) to the existing Permissions-Policy value
+value: "publickey-credentials-get=(self), usb=(self), camera=(), microphone=(), geolocation=()",
+```
+
+(WebHID has no standardized Permissions-Policy token; the WebUSB transport is the
+primary path and WebHID is the automatic fallback.)
+
+---
+
 ## Step 8 — Environment variables
 
 Copy `.env.local.example` to `.env.local` and fill in **one** backend:
@@ -399,16 +531,20 @@ Leave all blank for in-memory (dev only).
 
 ## Common mistakes
 
-| Mistake                                                                                               | Symptom                                                                          | Fix                                                                                                                                                                                                                                                                                       |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `appId` not set or set differently in `AuthProvider` vs direct `walletAppKeyMessage()` call           | Wallet re-auth decrypts to the wrong key; reveal fails silently                  | Export `APP_ID` from a shared module; always pass `walletAppKeyMessage(APP_ID)` in manual re-auth ceremonies                                                                                                                                                                              |
-| Passing `APP_ID` (string) as third arg to `deriveAppKeyFromPasskey`                                   | TypeScript error — third param is `number`                                       | Pass `user.pbkdf2Iterations` (number) instead; this is the per-user pinned PBKDF2 iteration count                                                                                                                                                                                         |
-| `lockOnHide: true` (default) on a page that uses `ExportKeyPanel` + wallet signing                    | Phantom popup backgrounds the tab → `status: session_expired` → panel disappears | Use `AuthProvider` directly with `lockOnHide: false` on that page instead of the shared `<Providers>` wrapper                                                                                                                                                                             |
-| Checking `status === "locked"`                                                                        | TypeScript error — `"locked"` is not in `AuthStatus`                             | Use `auth.isLocked` (boolean); `status` only has `"authenticated" \| "session_expired" \| "unauthenticated"`                                                                                                                                                                              |
-| Static `script-src 'self'` in `next.config.mjs`                                                       | Buttons don't work; CSP violation in console                                     | Move CSP to `proxy.ts` with per-request nonce                                                                                                                                                                                                                                             |
-| `MemoryAdapter` in production / serverless                                                            | Each instance has its own store; sessions don't survive restarts                 | Set `REDIS_URL` / `KV_REST_API_URL` / `UPSTASH_REDIS_REST_URL`                                                                                                                                                                                                                            |
-| `appKeyStorage: "session"` in config                                                                  | TypeScript error                                                                 | Removed in v0.3.0 — vault is memory-only; delete the option                                                                                                                                                                                                                               |
-| Old `passkeyHash` records in storage after upgrading to v0.3.0                                        | Login returns 401 for all users                                                  | Wipe the store (`FLUSHDB` / restart) and re-register                                                                                                                                                                                                                                      |
-| `trustProxyHeaders: true` without a real proxy                                                        | Rate-limit bypass; spoofed IPs                                                   | Only set `true` behind Vercel / Cloudflare / nginx you control                                                                                                                                                                                                                            |
-| Calling `useBiometricUnlock().unlock()` after enrolling via `client.enableBiometricUnlock()` directly | "No biometric unlock is registered on this device" — vault stays locked          | `unlock()` only works if you enrolled through `useBiometricUnlock().enable()` (the hook holds the reg in a React ref). If you called `client.enableBiometricUnlock()` to capture the `PasskeyRegistration` return value, drive vault re-arm with `client.unlockViaBiometric(reg)` instead |
-| Using `auth.reauthenticate({ biometricUnlock: reg })` for repeated lock/unlock cycles                 | Second unlock silently succeeds without Touch ID — biometric prompt never fires  | The general re-auth path can short-circuit on consecutive calls. Use `client.unlockViaBiometric(reg)` — it always runs the full Touch ID → unwrap stored key → re-arm vault path, forcing a fresh assertion every time.                                                                   |
+| Mistake                                                                                               | Symptom                                                                                                     | Fix                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `appId` not set or set differently in `AuthProvider` vs direct `walletAppKeyMessage()` call           | Wallet re-auth decrypts to the wrong key; reveal fails silently                                             | Export `APP_ID` from a shared module; always pass `walletAppKeyMessage(APP_ID)` in manual re-auth ceremonies                                                                                                                                                                              |
+| Passing `APP_ID` (string) as third arg to `deriveAppKeyFromPasskey`                                   | TypeScript error — third param is `number`                                                                  | Pass `user.pbkdf2Iterations` (number) instead; this is the per-user pinned PBKDF2 iteration count                                                                                                                                                                                         |
+| `lockOnHide: true` (default) on a page that uses `ExportKeyPanel` + wallet signing                    | Phantom popup backgrounds the tab → `status: session_expired` → panel disappears                            | Use `AuthProvider` directly with `lockOnHide: false` on that page instead of the shared `<Providers>` wrapper                                                                                                                                                                             |
+| Checking `status === "locked"`                                                                        | TypeScript error — `"locked"` is not in `AuthStatus`                                                        | Use `auth.isLocked` (boolean); `status` only has `"authenticated" \| "session_expired" \| "unauthenticated"`                                                                                                                                                                              |
+| Static `script-src 'self'` in `next.config.mjs`                                                       | Buttons don't work; CSP violation in console                                                                | Move CSP to `proxy.ts` with per-request nonce                                                                                                                                                                                                                                             |
+| `MemoryAdapter` in production / serverless                                                            | Each instance has its own store; sessions don't survive restarts                                            | Set `REDIS_URL` / `KV_REST_API_URL` / `UPSTASH_REDIS_REST_URL`                                                                                                                                                                                                                            |
+| `appKeyStorage: "session"` in config                                                                  | TypeScript error                                                                                            | Removed in v0.3.0 — vault is memory-only; delete the option                                                                                                                                                                                                                               |
+| Old `passkeyHash` records in storage after upgrading to v0.3.0                                        | Login returns 401 for all users                                                                             | Wipe the store (`FLUSHDB` / restart) and re-register                                                                                                                                                                                                                                      |
+| `trustProxyHeaders: true` without a real proxy                                                        | Rate-limit bypass; spoofed IPs                                                                              | Only set `true` behind Vercel / Cloudflare / nginx you control                                                                                                                                                                                                                            |
+| Calling `useBiometricUnlock().unlock()` after enrolling via `client.enableBiometricUnlock()` directly | "No biometric unlock is registered on this device" — vault stays locked                                     | `unlock()` only works if you enrolled through `useBiometricUnlock().enable()` (the hook holds the reg in a React ref). If you called `client.enableBiometricUnlock()` to capture the `PasskeyRegistration` return value, drive vault re-arm with `client.unlockViaBiometric(reg)` instead |
+| Using `auth.reauthenticate({ biometricUnlock: reg })` for repeated lock/unlock cycles                 | Second unlock silently succeeds without Touch ID — biometric prompt never fires                             | The general re-auth path can short-circuit on consecutive calls. Use `client.unlockViaBiometric(reg)` — it always runs the full Touch ID → unwrap stored key → re-arm vault path, forcing a fresh assertion every time.                                                                   |
+| Calling `connectWallet()` for a Ledger **without** `hardwareWallet: true`                             | Device rejects with `0x6a82` / demands Blind Signing, or login "works" but the embedded blob never decrypts | Pass `hardwareWallet: true` on every Ledger ceremony — it selects the newline-free `walletAppKeyMessageHw()` the device can clear-sign and that the key derives from                                                                                                                      |
+| Passing `hardwareWallet: true` at login but **omitting it** on `reveal()` / `reauthenticate()`        | Login succeeds, but unlock/reveal derives a different key and decrypt fails silently                        | A hardware account derives its key from the newline-free message — pass `hardwareWallet: true` **identically** at register, login, unlock, and reveal                                                                                                                                     |
+| Verifying a Ledger signature with `nacl.sign.detached.verify(msg, sig, pk)`                           | Verification fails even though the device signed correctly                                                  | A Ledger signs the off-chain **envelope**, not raw bytes. Verify against `offchainMessageCandidates(msg, pk)` from `@tetrac/login-sdk/ledger`                                                                                                                                             |
+| `lockOnHide: true` (default) on the Ledger page                                                       | On-device confirmation backgrounds the tab → `session_expired` before the signature returns                 | Instantiate `AuthProvider` with `lockOnHide: false` on the Ledger page (same fix as the Phantom-popup case)                                                                                                                                                                               |
